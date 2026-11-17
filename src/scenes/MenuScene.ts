@@ -12,6 +12,7 @@ import { ANIM } from '../graphics/animations';
 import { FX_FRAMES, TEX, UI_FRAMES } from '../graphics/keys';
 import { isTouchPrimary } from '../input/device';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
+import { profileSession } from './ProfileSelectScene';
 import { EffectsSystem } from '../systems/EffectsSystem';
 import { Button } from '../ui/Button';
 import { ButtonMenu } from '../ui/ButtonMenu';
@@ -84,15 +85,18 @@ export class MenuScene extends Phaser.Scene {
     addText(this, cx, 100, TEXTS.subtitle.toUpperCase(), { color: UI_COLORS.cream, origin: [0.5, 0], scrollFactor: 0, depth: UI_DEPTH });
 
     const make = (y: number, label: string, onClick: () => void) =>
-      new Button(this, cx, y, label, { width: 128, height: 19, onClick, depth: UI_DEPTH });
-    const play = make(124, TEXTS.menu.play, () => this.startGame());
-    const howTo = make(145, TEXTS.menu.howTo, () => this.openOverlay(SCENES.HOW_TO));
-    const options = make(166, TEXTS.menu.options, () => this.openOverlay(SCENES.OPTIONS));
-    const recordsBtn = make(187, TEXTS2.menu.records, () => this.openOverlay(SCENES.RECORDS));
-    this.menu = new ButtonMenu(this, [{ button: play }, { button: howTo }, { button: options }, { button: recordsBtn }], { depth: UI_DEPTH });
+      new Button(this, cx, y, label, { width: 128, height: 18, onClick, depth: UI_DEPTH });
+    const play = make(120, TEXTS.menu.play, () => this.startGame());
+    const profile = make(140, TEXTS2.profiles.change, () => this.openProfiles());
+    const howTo = make(160, TEXTS.menu.howTo, () => this.openOverlay(SCENES.HOW_TO));
+    const options = make(180, TEXTS.menu.options, () => this.openOverlay(SCENES.OPTIONS));
+    const recordsBtn = make(200, TEXTS2.menu.records, () => this.openOverlay(SCENES.RECORDS));
+    this.menu = new ButtonMenu(this, [{ button: play }, { button: profile }, { button: howTo }, { button: options }, { button: recordsBtn }], { depth: UI_DEPTH });
+
+    addText(this, 6, 6, `${TEXTS2.profiles.playingAs}: ${saveStore.activeProfile().nickname}`, { color: UI_COLORS.celeste, scrollFactor: 0, depth: UI_DEPTH });
 
     const best = records.get().bestScore;
-    addText(this, cx, 207, best > 0 ? `${TEXTS.menu.record}: ${formatThousands(best)}` : TEXTS.menu.noRecord, {
+    addText(this, cx, 214, best > 0 ? `${TEXTS.menu.record}: ${formatThousands(best)}` : TEXTS.menu.noRecord, {
       color: UI_COLORS.yellow,
       origin: [0.5, 0],
       scrollFactor: 0,
@@ -123,8 +127,15 @@ export class MenuScene extends Phaser.Scene {
     audio.play('start');
     this.cameras.main.fadeOut(260, 18, 12, 24);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start(SCENES.WORLD_MAP);
+      // Una vez por sesión se elige quién juega (perfiles locales).
+      if (profileSession.chosen) this.scene.start(SCENES.WORLD_MAP);
+      else this.scene.start(SCENES.PROFILES, { next: 'map' });
     });
+  }
+
+  private openProfiles(): void {
+    this.menu.setEnabled(false);
+    this.scene.start(SCENES.PROFILES, { next: 'menu' });
   }
 
   private openOverlay(key: string): void {

@@ -40,7 +40,8 @@ export class GameOverScene extends Phaser.Scene {
     }
 
     addText(this, cx, 44, t.message, { color: UI_COLORS.yellow, origin: [0.5, 0], align: 'center', maxWidth: 360 });
-    addText(this, cx, 68, `${r.barrioName} · NIVEL ${r.levelNumber} · CUADRA ${Math.min(r.blocksCompleted + 1, r.totalBlocks)}/${r.totalBlocks}`, {
+    const modeLabel = r.mode === 'timeTrial' ? ` · ${TEXTS2.hud.timeTrial}` : '';
+    addText(this, cx, 68, `${r.barrioName} · NIVEL ${r.levelNumber}${modeLabel} · CUADRA ${Math.min(r.blocksCompleted + 1, r.totalBlocks)}/${r.totalBlocks}`, {
       outline: false,
       color: UI_COLORS.gray,
       origin: [0.5, 0],
@@ -83,7 +84,8 @@ export class GameOverScene extends Phaser.Scene {
 
   private restartLevel(): void {
     this.scene.stop(SCENES.HUD);
-    this.scene.start(SCENES.GAME, { run: createRun(this.result.ref, this.result.run.seed) });
+    const r = this.result.run;
+    this.scene.start(SCENES.GAME, { run: createRun(this.result.ref, { seed: r.seed, mode: r.mode, characterId: r.characterId }) });
   }
 
   private toScene(key: string): void {

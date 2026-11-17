@@ -3,6 +3,7 @@ import { PLAYER_TUNING } from '../config/balance';
 import { GAME_WIDTH, SCENES } from '../config/constants';
 import { UI_COLORS } from '../config/palette';
 import { TEXTS, TEXTS2 } from '../config/texts';
+import { formatDelta, formatTime } from '../core/LevelClock';
 import { formatThousands } from '../core/math';
 import type { LifeMark } from '../core/RunState';
 import { ICON_FRAMES, TEX, UI_FRAMES } from '../graphics/keys';
@@ -33,19 +34,30 @@ export class HudScene extends Phaser.Scene {
   private signalText!: Phaser.GameObjects.BitmapText;
   private missionBox!: Phaser.GameObjects.Container;
   private missionText!: Phaser.GameObjects.BitmapText;
+  private missionIcon!: Phaser.GameObjects.Image;
   private toast?: Phaser.GameObjects.BitmapText;
+  /** Carteles grandes en espera (se muestran de a uno, nunca superpuestos). */
+  private bannerQueue: (() => void)[] = [];
+  private bannerBusy = false;
   private touch?: TouchControls;
   private displayedScore = 0;
   private lastMultiplier = 1;
   private lastBlockLabel = '';
   private sneakersShifted = false;
   private clock = 0;
+  private timerText!: Phaser.GameObjects.BitmapText;
+  private splitText!: Phaser.GameObjects.BitmapText;
+  private abilityBox!: Phaser.GameObjects.Container;
+  private abilityIcon!: Phaser.GameObjects.Image;
+  private abilityRing!: Phaser.GameObjects.Graphics;
 
   constructor() {
     super(SCENES.HUD);
   }
 
   create(data: HudInit): void {
+    this.bannerQueue = [];
+    this.bannerBusy = false;
     this.data0 = data;
     this.gameScene = this.scene.get(SCENES.GAME) as GameScene;
     this.sneakers = [];
@@ -60,7 +72,7 @@ export class HudScene extends Phaser.Scene {
     // Fondos semitransparentes: la HUD se lee sobre cualquier fachada.
     const backing = this.add.graphics();
     backing.fillStyle(0x120c18, 0.45).fillRoundedRect(2, 1, 92, 42, 4);
-    backing.fillStyle(0x120c18, 0.45).fillRoundedRect(GAME_WIDTH / 2 - 78, 1, 156, 23, 4);
+    backing.fillStyle(0x120c18, 0.45).fillRoundedRect(GAME_WIDTH / 2 - 78, 1, 156, 33, 4);
     this.sneakerBacking = this.add.graphics();
 
     addText(this, 8, 2, TEXTS.hud.score, { color: UI_COLORS.yellow });
@@ -71,8 +83,21 @@ export class HudScene extends Phaser.Scene {
     this.comboBar = this.add.graphics();
 
     const cx = GAME_WIDTH / 2;
-    addText(this, cx, 2, `${data.barrioName} · ${TEXTS2.hud.level} ${data.levelNumber}`, { color: UI_COLORS.yellow, origin: [0.5, 0] });
-    this.blockText = addText(this, cx, 13, '', { color: UI_COLORS.white, origin: [0.5, 0] });
+    const title = data.mode === 'timeTrial' ? `${TEXTS2.hud.timeTrial} · ${TEXTS2.hud.level} ${data.levelNumber}` : `${data.barrioName} · ${TEXTS2.hud.level} ${data.levelNumber}`;
+    addText(this, cx, 2, title, { color: data.mode === 'timeTrial' ? UI_COLORS.orange : UI_COLORS.yellow, origin: [0.5, 0] });
+    this.blockText = addText(this, cx, 12, '', { color: UI_COLORS.white, origin: [0.5, 0] });
+    // Cronómetro (siempre visible) y, al lado, el mejor tiempo personal.
+    this.timerText = addText(this, cx, 22, `${TEXTS2.hud.time} 00:00.0`, { color: UI_COLORS.celeste, origin: [0.5, 0] });
+    this.splitText = addText(this, cx, 36, '', { color: UI_COLORS.green, origin: [0.5, 0] }).setVisible(false);
+    if (data.bestTimeMs !== null) addText(this, cx + 76, 23, formatTime(data.bestTimeMs), { outline: false, color: 0x8a7f96, origin: [1, 0] });
+
+    // Poder especial: ícono con el anillo de recarga y la tecla E (en el celular, el botón táctil).
+    this.abilityRing = this.add.graphics();
+    this.abilityIcon = this.add.image(0, 0, TEX.icons, ICON_FRAMES.abDash);
+    const keyHint = addText(this, 14, -4, 'E', { color: UI_COLORS.yellow });
+    const abBg = this.add.graphics();
+    abBg.fillStyle(0x120c18, 0.55).fillCircle(0, 0, 13);
+    this.abilityBox = this.add.container(18, 240, [abBg, this.abilityRing, this.abilityIcon, keyHint]).setVisible(false);
 
     for (let i = 0; i < PLAYER_TUNING.lives; i++) this.sneakers.push(this.add.image(0, 13, TEX.ui, UI_FRAMES.sneakerClean));
     this.refreshSneakers(data.lifeMarks);
@@ -92,9 +117,9 @@ export class HudScene extends Phaser.Scene {
     // Misión de la basura.
     const misBg = this.add.graphics();
     misBg.fillStyle(0x120c18, 0.5).fillRoundedRect(0, 0, 92, 15, 4);
-    const trash = this.add.image(9, 7, TEX.icons, ICON_FRAMES.trash);
+    this.missionIcon = this.add.image(9, 7, TEX.icons, ICON_FRAMES.trash);
     this.missionText = addText(this, 18, 4, '', { color: UI_COLORS.celeste });
-    this.missionBox = this.add.container(2, 46, [misBg, trash, this.missionText]).setVisible(false);
+    this.missionBox = this.add.container(2, 46, [misBg, this.missionIcon, this.missionText]).setVisible(false);
 
     this.phrase = addText(this, cx, 66, '', { scale: 2, origin: 0.5 }).setVisible(false);
 
@@ -111,7 +136,15 @@ export class HudScene extends Phaser.Scene {
     ev.on('hud:phrase', this.onPhrase, this);
     ev.on('hud:block', this.onBlock, this);
     ev.on('hud:checkpoint', this.onCheckpoint, this);
+    ev.on('hud:split', this.onSplit, this);
+    ev.on('hud:unlock', this.onUnlock, this);
+    ev.on('hud:record', this.onRecord, this);
+    ev.on('hud:ability-ready', this.onAbilityReady, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      ev.off('hud:split', this.onSplit, this);
+      ev.off('hud:unlock', this.onUnlock, this);
+      ev.off('hud:record', this.onRecord, this);
+      ev.off('hud:ability-ready', this.onAbilityReady, this);
       ev.off('hud:life-lost', this.onLifeLost, this);
       ev.off('hud:phrase', this.onPhrase, this);
       ev.off('hud:block', this.onBlock, this);
@@ -148,16 +181,33 @@ export class HudScene extends Phaser.Scene {
     });
   }
 
+  /** Cartel grande en el centro. Si ya hay uno, espera su turno: nunca se superponen. */
   private banner(lines: { text: string; scale: number; color: number }[], delay = 0, hold = 2000): void {
-    const cx = GAME_WIDTH / 2;
-    let y = 70;
-    const objs = lines.map((l) => {
-      const t = addText(this, cx, y, l.text, { scale: l.scale, color: l.color, origin: 0.5 }).setAlpha(0);
-      y += 9 * l.scale + 6;
-      return t;
-    });
-    this.tweens.add({ targets: objs, alpha: 1, delay, duration: 160 });
-    this.tweens.add({ targets: objs, alpha: 0, delay: delay + hold, duration: 400, onComplete: () => objs.forEach((o) => o.destroy()) });
+    const show = () => {
+      this.bannerBusy = true;
+      const cx = GAME_WIDTH / 2;
+      let y = 70;
+      const objs = lines.map((l) => {
+        const t = addText(this, cx, y, l.text, { scale: l.scale, color: l.color, origin: 0.5 }).setAlpha(0);
+        y += 9 * l.scale + 6;
+        return t;
+      });
+      this.tweens.add({ targets: objs, alpha: 1, delay, duration: 160 });
+      this.tweens.add({
+        targets: objs,
+        alpha: 0,
+        delay: delay + hold,
+        duration: 400,
+        onComplete: () => {
+          objs.forEach((o) => o.destroy());
+          this.bannerBusy = false;
+          this.bannerQueue.shift()?.();
+        },
+      });
+    };
+    // El que llega mientras se ve otro, espera su turno.
+    if (this.bannerBusy) this.bannerQueue.push(show);
+    else show();
   }
 
   private blockLine(i: number): string {
@@ -205,6 +255,39 @@ export class HudScene extends Phaser.Scene {
     this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
   }
 
+  /** Diferencia con el mejor parcial personal en cada esquina. */
+  private onSplit(deltaMs: number): void {
+    this.tweens.killTweensOf(this.splitText);
+    this.splitText
+      .setText(`${TEXTS2.hud.split} ${formatDelta(deltaMs)}`)
+      .setTint(deltaMs <= 0 ? UI_COLORS.green : UI_COLORS.red)
+      .setVisible(true)
+      .setAlpha(1);
+    this.tweens.add({ targets: this.splitText, alpha: 0, delay: 2200, duration: 400, onComplete: () => this.splitText.setVisible(false) });
+  }
+
+  private onUnlock(name: string): void {
+    this.banner(
+      [
+        { text: TEXTS2.hud.newCharacter, scale: 2, color: UI_COLORS.green },
+        { text: name, scale: 1, color: UI_COLORS.yellow },
+      ],
+      0,
+      2200,
+    );
+  }
+
+  /** Animación del cronómetro cuando se bate un récord. */
+  private onRecord(timeRecord: boolean): void {
+    if (!timeRecord) return;
+    this.timerText.setTint(UI_COLORS.green);
+    this.tweens.add({ targets: this.timerText, scale: { from: 1.6, to: 1 }, duration: 380, ease: 'Back.easeOut', repeat: 2 });
+  }
+
+  private onAbilityReady(): void {
+    this.tweens.add({ targets: this.abilityBox, scale: { from: 1.4, to: 1 }, duration: 260, ease: 'Back.easeOut' });
+  }
+
   private onLifeLost(lives: number): void {
     const marks = this.gameScene.getHudSnapshot().lifeMarks;
     this.refreshSneakers(marks);
@@ -217,6 +300,8 @@ export class HudScene extends Phaser.Scene {
 
   private onPhrase(text: string, color: number): void {
     this.tweens.killTweensOf(this.phrase);
+    // Con un cartel grande en pantalla, la frase va más abajo para no pisarlo.
+    this.phrase.setY(this.bannerBusy ? 156 : 66);
     this.phrase.setText(text).setTint(color).setVisible(true).setAlpha(1).setScale(1);
     this.tweens.add({ targets: this.phrase, scale: 2, duration: 160, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.phrase, alpha: 0, delay: 1000, duration: 260, onComplete: () => this.phrase.setVisible(false) });
@@ -234,6 +319,26 @@ export class HudScene extends Phaser.Scene {
     else this.displayedScore += diff * Math.min(1, dt * 10) + Math.sign(diff) * 0.5;
     this.scoreText.setText(formatThousands(Math.round(this.displayedScore)));
     this.coinText.setText(`${snap.coins}`);
+    this.timerText.setText(`${TEXTS2.hud.time} ${formatTime(snap.timeMs)}`);
+
+    // Poder especial: anillo de recarga (lleno = listo).
+    const ab = snap.ability;
+    const touchShown = this.touch?.isShown ?? false;
+    this.abilityBox.setVisible(ab !== null && !touchShown);
+    this.touch?.setSpecial(ab ? { icon: ab.icon, charge: ab.charge, active: ab.active } : null);
+    if (ab) {
+      this.abilityIcon.setFrame(ab.icon).setAlpha(ab.ready || ab.active ? 1 : 0.45);
+      const g = this.abilityRing;
+      g.clear();
+      g.lineStyle(2, 0x4a3657, 1).strokeCircle(0, 0, 11);
+      const color = ab.active ? 0xff8a1f : ab.ready ? 0x6fe07a : 0xffd23f;
+      const frac = ab.active ? 1 : ab.charge;
+      if (frac > 0) {
+        g.lineStyle(2, color, 1).beginPath();
+        g.arc(0, 0, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac, false);
+        g.strokePath();
+      }
+    }
 
     // Multiplicador
     if (snap.multiplier > 1) {
@@ -281,7 +386,10 @@ export class HudScene extends Phaser.Scene {
     const m = snap.mission;
     this.missionBox.setVisible(m !== null && m.status === 'active');
     if (m && m.status === 'active') {
-      this.missionText.setText(m.collected >= m.required ? TEXTS2.hud.tacho : `${TEXTS2.hud.trash} ${m.collected}/${m.required}`);
+      const animal = m.kind === 'animal';
+      this.missionIcon.setFrame(animal ? ICON_FRAMES.paw : ICON_FRAMES.trash);
+      const done = m.collected >= m.required;
+      this.missionText.setText(animal ? (done ? TEXTS2.hud.toOwner : `${TEXTS2.hud.dog} ${m.collected}/${m.required}`) : done ? TEXTS2.hud.tacho : `${TEXTS2.hud.trash} ${m.collected}/${m.required}`);
     }
 
     // Barra de progreso del nivel, con una marca en cada esquina.

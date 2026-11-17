@@ -94,15 +94,25 @@ export interface CoinPlacement {
   y: number;
 }
 
-/** Elementos de la misión "juntá la basura y llevala al tacho". */
+/** Elementos de la misión del nivel (la basura del portero o el perro perdido). */
 export interface MissionPlacement {
   id: string;
   blockIndex: number;
-  /** Personaje que da la misión (el portero barriendo la vereda). */
+  /** Personaje que da (o recibe) la misión: el portero barriendo, la dueña del perro... */
   giver: { npc: string; x: number; y: number };
+  /** Residuos (frame de la hoja de basura) o el perro perdido (frame 'dog'). */
   items: { x: number; y: number; frame: string }[];
-  /** Tacho donde se entrega (es un prop sólido del nivel). */
+  /** Dónde se entrega: el tacho (prop sólido) o la dueña del perro. */
   target: { x: number; y: number };
+}
+
+/** Vecina que riega la vereda (el chorro siempre deja libre el carril del cordón). */
+export interface WaterLadyPlacement {
+  x: number;
+  y: number;
+  blockIndex: number;
+  /** Desfase (s) del ciclo, para que no rieguen todas sincronizadas. */
+  offset: number;
 }
 
 export interface LevelLayout {
@@ -122,6 +132,7 @@ export interface LevelLayout {
   npcs: NpcPlacement[];
   coins: CoinPlacement[];
   mission: MissionPlacement | null;
+  waterLadies: WaterLadyPlacement[];
   /** Calle transversal decorativa de la esquina final (sin tránsito). */
   crossStreetX: number;
   finalStreet: string | null;

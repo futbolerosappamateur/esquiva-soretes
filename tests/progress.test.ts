@@ -115,7 +115,7 @@ describe('Checkpoints y monedas', () => {
     score.addBonus(1000);
     run.coins = 12;
     expect(takeUnbankedCoins(run)).toBe(12); // se acreditan al llegar a la esquina
-    run.checkpoint = { blocksCompleted: 1, x: 3700, y: 180, score: score.toSnapshot(), coins: run.coins, crossingsDone: 0, missionDone: false, carHits: 0 };
+    run.checkpoint = { blocksCompleted: 1, x: 3700, y: 180, score: score.toSnapshot(), coins: run.coins, crossingsDone: 0, missionDone: false, carHits: 0, elapsedMs: 0, splits: [], missionsDone: 0 };
     // Después del checkpoint juega un poco más y pierde.
     run.coins = 20;
     run.lives = 0;
@@ -135,7 +135,7 @@ describe('Checkpoints y monedas', () => {
 
   it('repetir una misión desde el checkpoint no da monedas infinitas', () => {
     const run = createRun(ST);
-    run.checkpoint = { blocksCompleted: 1, x: 3700, y: 180, score: new ScoreSystem(0).toSnapshot(), coins: 0, crossingsDone: 0, missionDone: false, carHits: 0 };
+    run.checkpoint = { blocksCompleted: 1, x: 3700, y: 180, score: new ScoreSystem(0).toSnapshot(), coins: 0, crossingsDone: 0, missionDone: false, carHits: 0, elapsedMs: 0, splits: [], missionsDone: 0 };
     let wallet = 0;
     // Tres intentos: en cada uno completa la misión (+21 monedas) y pierde antes de la siguiente esquina.
     let current = run;

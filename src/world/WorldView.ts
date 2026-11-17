@@ -51,6 +51,8 @@ export class WorldView {
   private readonly npcs: Npc[] = [];
   private readonly lamps: LampLight[] = [];
   private readonly leaves: FallingLeaf[] = [];
+  /** Montones de hojas (para que la escoba y la manguera los puedan correr). */
+  private readonly leafPiles: { img: Phaser.GameObjects.Image; x: number; y: number; cleared: boolean }[] = [];
   private cloudDrift = 0;
   private clock = 0;
   /** Se llama cuando una paloma se espanta (para el sonido). */
@@ -116,7 +118,8 @@ export class WorldView {
       if (d.flip) img.setFlipX(true);
       const tint = d.tint !== undefined ? multiplyColor(d.tint, worldTint) : worldTint;
       if (tint !== 0xffffff) img.setTint(tint);
-      this.track(img, d.x - img.width / 2, d.x + img.width / 2);
+      if (d.texture === TEX.leafPile) this.leafPiles.push({ img, x: d.x, y: d.y, cleared: false });
+      else this.track(img, d.x - img.width / 2, d.x + img.width / 2);
     }
 
     for (const c of layout.cars) {
@@ -184,6 +187,18 @@ export class WorldView {
     }
   }
 
+  /** Corre (hace desaparecer) los montones de hojas dentro del rectángulo. Devuelve sus posiciones. */
+  clearLeavesIn(x0: number, x1: number, y0: number, y1: number): { x: number; y: number }[] {
+    const out: { x: number; y: number }[] = [];
+    for (const p of this.leafPiles) {
+      if (p.cleared || p.x < x0 || p.x > x1 || p.y < y0 - 6 || p.y > y1 + 6) continue;
+      p.cleared = true;
+      out.push({ x: p.x, y: p.y });
+      this.scene.tweens.add({ targets: p.img, alpha: 0, scaleX: 1.4, duration: 260, onComplete: () => p.img.setVisible(false) });
+    }
+    return out;
+  }
+
   private track(obj: Phaser.GameObjects.Image, x0: number, x1: number): void {
     this.cullables.push({ obj, x0, x1 });
   }
@@ -199,6 +214,7 @@ export class WorldView {
     const left = scrollX - 40;
     const right = scrollX + GAME_WIDTH + 40;
     for (const c of this.cullables) c.obj.setVisible(c.x1 > left && c.x0 < right);
+    for (const p of this.leafPiles) if (!p.cleared) p.img.setVisible(p.x > left - 20 && p.x < right + 20);
 
     for (const p of this.pigeons) {
       if (!p.alive) continue;

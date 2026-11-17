@@ -1,11 +1,12 @@
 import { BARRIOS, FIRST_BARRIO_ID, getBarrio, nextBarrio, type BarrioDef, type LevelRef } from '../data/campaign';
-import { DEFAULT_CHARACTER_ID, STARTER_CHARACTERS } from '../data/characters';
+import { ACHIEVEMENT_IDS, type AchievementCounts } from '../data/achievements';
+import { CHARACTERS, DEFAULT_CHARACTER_ID, getCharacter, isPlayable, STARTER_CHARACTERS } from '../data/characters';
 
 /**
  * Progreso guardado (formato versión 2) y las reglas de la campaña.
  * Todo son funciones puras sobre objetos: se pueden probar sin navegador.
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface LevelProgress {
   completed: boolean;
@@ -32,6 +33,10 @@ export interface SaveData {
   selectedCharacter: string;
   missions: { completions: Record<string, number>; firstRewards: string[] };
   stats: { levelsCompleted: number; crossings: number; carHits: number };
+  /** Contadores de logros (desbloquean personajes). */
+  achievements: AchievementCounts;
+  /** Personajes cuya notificación de desbloqueo ya se mostró. */
+  seenCharacters: string[];
 }
 
 export function createDefaultSave(): SaveData {
@@ -45,6 +50,8 @@ export function createDefaultSave(): SaveData {
     selectedCharacter: DEFAULT_CHARACTER_ID,
     missions: { completions: {}, firstRewards: [] },
     stats: { levelsCompleted: 0, crossings: 0, carHits: 0 },
+    achievements: {},
+    seenCharacters: [...STARTER_CHARACTERS],
   };
 }
 
@@ -85,8 +92,10 @@ export function migrateSave(raw: unknown): SaveData {
   save.seenUnlocks = Array.from(new Set([FIRST_BARRIO_ID, ...strList(raw.seenUnlocks).filter((id) => getBarrio(id))]));
   if (isObj(raw.wallet)) save.wallet = { coins: num(raw.wallet.coins), totalEarned: num(raw.wallet.totalEarned) };
   if (isObj(raw.unlocks)) {
+    // Sólo personajes que existen y se pueden elegir (Don Tito pasó a ser un personaje futuro).
+    const known = (id: string) => CHARACTERS.some((c) => c.id === id) && isPlayable(getCharacter(id));
     save.unlocks = {
-      characters: Array.from(new Set([...STARTER_CHARACTERS, ...strList(raw.unlocks.characters)])),
+      characters: Array.from(new Set([...STARTER_CHARACTERS, ...strList(raw.unlocks.characters).filter(known)])),
       cosmetics: strList(raw.unlocks.cosmetics),
       rewards: strList(raw.unlocks.rewards),
     };
@@ -98,6 +107,13 @@ export function migrateSave(raw: unknown): SaveData {
     save.missions = { completions, firstRewards: strList(raw.missions.firstRewards) };
   }
   if (isObj(raw.stats)) save.stats = { levelsCompleted: num(raw.stats.levelsCompleted), crossings: num(raw.stats.crossings), carHits: num(raw.stats.carHits) };
+  if (isObj(raw.achievements)) {
+    for (const id of ACHIEVEMENT_IDS) {
+      const v = num(raw.achievements[id]);
+      if (v > 0) save.achievements[id] = v;
+    }
+  }
+  save.seenCharacters = Array.from(new Set([...STARTER_CHARACTERS, ...strList(raw.seenCharacters)]));
   // Coherencia: un barrio completo desbloquea el siguiente aunque el dato se haya perdido.
   for (const b of BARRIOS) {
     if (save.barrios[b.id]?.completed) {
@@ -137,6 +153,11 @@ export function isLevelUnlocked(save: SaveData, ref: LevelRef): boolean {
   if (!barrio || !barrio.levels[ref.levelIndex] || !isBarrioUnlocked(save, ref.barrioId)) return false;
   if (ref.levelIndex === 0) return true;
   return levelProgress(save, barrio.levels[ref.levelIndex - 1].id).completed;
+}
+
+/** La contrarreloj de un nivel se habilita después de completarlo una vez en modo normal. */
+export function isTimeTrialUnlocked(save: SaveData, levelId: string): boolean {
+  return levelProgress(save, levelId).completed;
 }
 
 export function barrioStars(save: SaveData, barrio: BarrioDef): { stars: number; max: number } {
@@ -247,4 +268,75 @@ export function spendCoins(save: SaveData, amount: number): boolean {
 /** Reinicia el progreso de la campaña (los récords y las preferencias se guardan aparte y no se tocan). */
 export function resetProgress(): SaveData {
   return createDefaultSave();
+}
+
+// ---------------------------------------------------------------------------
+// Perfiles locales (archivo de guardado versión 3)
+// ---------------------------------------------------------------------------
+
+export interface ProfileRecord {
+  id: string;
+  nickname: string;
+  createdAt: string;
+  data: SaveData;
+}
+
+/** Archivo completo: varios perfiles, cada uno con su propio progreso. */
+export interface SaveFile {
+  version: 3;
+  activeProfileId: string;
+  profiles: ProfileRecord[];
+}
+
+export const MAX_PROFILES = 6;
+export const NICKNAME_MAX = 10;
+const NICK_CHARS = /[^A-ZÑÁÉÍÓÚÜ0-9 ]/g;
+
+/** Apodo válido: mayúsculas, números y espacios, hasta 10 caracteres. */
+export function sanitizeNickname(name: unknown): string {
+  if (typeof name !== 'string') return '';
+  return name.toUpperCase().replace(NICK_CHARS, '').replace(/\s+/g, ' ').trim().slice(0, NICKNAME_MAX);
+}
+
+let idCounter = 0;
+export function newProfileId(): string {
+  idCounter++;
+  return `p-${Date.now().toString(36)}-${idCounter.toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+export function createProfile(nickname: string, data: SaveData = createDefaultSave()): ProfileRecord {
+  return { id: newProfileId(), nickname: sanitizeNickname(nickname) || 'JUGADOR', createdAt: new Date().toISOString(), data };
+}
+
+export function createSaveFile(): SaveFile {
+  const first = createProfile('JUGADOR 1');
+  return { version: 3, activeProfileId: first.id, profiles: [first] };
+}
+
+/**
+ * Convierte cualquier guardado al formato con perfiles:
+ *  - v0.1 / sin datos: un perfil nuevo.
+ *  - v0.2 (un solo progreso): pasa a ser el perfil "JUGADOR 1", sin perder nada.
+ *  - v0.3: se valida cada perfil.
+ */
+export function migrateSaveFile(raw: unknown): SaveFile {
+  if (isObj(raw) && Array.isArray(raw.profiles)) {
+    const profiles: ProfileRecord[] = [];
+    for (const p of raw.profiles.slice(0, MAX_PROFILES)) {
+      if (!isObj(p)) continue;
+      const id = typeof p.id === 'string' && p.id ? p.id : newProfileId();
+      if (profiles.some((x) => x.id === id)) continue;
+      profiles.push({
+        id,
+        nickname: sanitizeNickname(p.nickname) || `JUGADOR ${profiles.length + 1}`,
+        createdAt: typeof p.createdAt === 'string' ? p.createdAt : new Date().toISOString(),
+        data: migrateSave(p.data),
+      });
+    }
+    if (profiles.length === 0) return createSaveFile();
+    const active = typeof raw.activeProfileId === 'string' && profiles.some((p) => p.id === raw.activeProfileId) ? raw.activeProfileId : profiles[0].id;
+    return { version: 3, activeProfileId: active, profiles };
+  }
+  const first = createProfile('JUGADOR 1', migrateSave(raw));
+  return { version: 3, activeProfileId: first.id, profiles: [first] };
 }

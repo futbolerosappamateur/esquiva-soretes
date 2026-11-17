@@ -22,6 +22,9 @@ export const SCENES = {
   CHARACTER: 'CharacterSelect',
   BARRIO_COMPLETE: 'BarrioComplete',
   RECORDS: 'Records',
+  PROFILES: 'Profiles',
+  NAME_ENTRY: 'NameEntry',
+  LEADERBOARD: 'Leaderboard',
 } as const;
 
 /**

@@ -5,6 +5,7 @@ import { clamp } from '../core/math';
 import { ANIM, type PlayerAnim } from '../graphics/animations';
 import { FX_FRAMES, TEX } from '../graphics/keys';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
+import type { CelebrationStyle, CharacterStats } from '../data/characters';
 import type { Footprint } from '../systems/Collision';
 import { PlayerMotor, type BlockedFn, type MotorBounds, type MotorControls } from './PlayerMotor';
 
@@ -50,6 +51,8 @@ export class Player {
   readonly shadow: Phaser.GameObjects.Image;
 
   private dirt: number;
+  private specialTimer = 0;
+  private celebration: CelebrationStyle = 'default';
   private victoryTime = 0;
   private hopTimer = 0;
   private currentAnim = '';
@@ -62,8 +65,9 @@ export class Player {
     y: number,
     dirt: number,
     private readonly hooks: PlayerHooks = {},
+    stats?: CharacterStats,
   ) {
-    this.motor = new PlayerMotor(x, y);
+    this.motor = new PlayerMotor(x, y, stats);
     this.dirt = clamp(dirt, 0, 2);
     this.shadow = scene.add.image(x, y, TEX.fx, FX_FRAMES.shadow).setAlpha(0.3).setDepth(DEPTH.shadow);
     this.sprite = scene.add.sprite(x, y, TEX.player(this.dirt), 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY);
@@ -122,6 +126,7 @@ export class Player {
 
   update(dt: number, controls: MotorControls | null, bounds: PlayerBounds, isBlocked: BlockedFn): void {
     this.invulnerable = Math.max(0, this.invulnerable - dt);
+    this.specialTimer = Math.max(0, this.specialTimer - dt);
     this.motor.tickTimers(dt);
 
     if (this.state === 'normal') {
@@ -149,8 +154,13 @@ export class Player {
     } else if (this.motor.onGround) {
       this.hopTimer -= dt;
       if (this.hopTimer <= 0) {
-        this.hopTimer = 0.55;
-        this.motor.jump(150);
+        // Cada personaje festeja a su manera.
+        const style = this.celebration;
+        this.hopTimer = style === 'hop' ? 0.42 : style === 'champion' ? 0.9 : 0.55;
+        this.motor.jump(style === 'hop' ? 200 : style === 'champion' ? 110 : 150);
+        if (style === 'trick') {
+          this.scene.tweens.add({ targets: this.sprite, angle: { from: 0, to: 360 * this.motor.facing }, duration: 420, ease: 'Sine.easeInOut' });
+        }
       }
     }
   }
@@ -173,7 +183,8 @@ export class Player {
       const blinking = this.invulnerable > 0 && Math.floor(this.invulnerable * 12) % 2 === 0;
       this.sprite.setAlpha(blinking ? 0.35 : 1);
       const speed = Math.hypot(m.vx, m.vy);
-      if (!m.onGround) this.showFrame(m.vz > 50 ? 'jumpUp' : 'jumpDown');
+      if (this.specialTimer > 0) this.showFrame(this.hasFrame('special0') ? 'special0' : 'jumpPrep');
+      else if (!m.onGround) this.showFrame(m.vz > 50 ? 'jumpUp' : 'jumpDown');
       else if (m.landTimer > 0) this.showFrame('jumpPrep');
       else if (speed > 6) {
         this.playAnim(m.running ? 'run' : 'walk');
@@ -186,8 +197,15 @@ export class Player {
     }
   }
 
+  private hasFrame(frame: string): boolean {
+    return this.scene.textures.get(TEX.player(this.dirt)).has(frame);
+  }
+
   private playAnim(name: PlayerAnim): void {
-    const key = ANIM.player(this.dirt, name);
+    // Si falta una animación propia del personaje, se usa la de espera (nunca un error).
+    let key = ANIM.player(this.dirt, name);
+    if (!this.scene.anims.exists(key)) key = ANIM.player(this.dirt, 'idle');
+    if (!this.scene.anims.exists(key)) return;
     if (this.currentAnim === key) return;
     this.currentAnim = key;
     this.currentFrame = '';
@@ -196,11 +214,21 @@ export class Player {
   }
 
   private showFrame(frame: string): void {
+    if (!this.hasFrame(frame)) frame = 'idle0';
     if (this.currentFrame === frame && this.currentAnim === '') return;
     this.sprite.stop();
     this.currentAnim = '';
     this.currentFrame = frame;
     this.sprite.setTexture(TEX.player(this.dirt), frame);
+  }
+
+  /** Pose de "activar el poder" durante unos instantes (si el personaje la tiene). */
+  showSpecial(seconds = 0.35): void {
+    this.specialTimer = seconds;
+  }
+
+  setCelebration(style: CelebrationStyle): void {
+    this.celebration = style;
   }
 
   /** Pisó una baldosa floja: queda más lento un ratito. */

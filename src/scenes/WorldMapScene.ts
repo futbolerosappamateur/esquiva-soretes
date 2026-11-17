@@ -23,6 +23,8 @@ import { Button } from '../ui/Button';
 import { addText } from '../ui/text';
 import { parseBarriosGeoJson, projectBarrios, provisionalMap, rasterizeMap, scaleProjected, type MapRaster, type ProjectedMap } from '../world/map/geo';
 import { MapRenderer, type BarrioVisual } from '../world/map/MapRenderer';
+import { uniqueKeyEvents } from '../input/keyEvents';
+import { CHARACTERS, isPlayable } from '../data/characters';
 
 const GEO_KEY = 'caba-barrios';
 const ZOOMS = [1, 2, 3] as const;
@@ -100,7 +102,11 @@ export class WorldMapScene extends Phaser.Scene {
   create(): void {
     this.cameras.main.setBackgroundColor('#3a6fc4');
     if (debugFlags.unlockAll) {
-      saveStore.update((s) => BARRIOS.filter((b) => b.levels.length > 0).forEach((b) => (ensureBarrio(s, b.id).unlocked = true)));
+      saveStore.update((s) => {
+        BARRIOS.filter((b) => b.levels.length > 0).forEach((b) => (ensureBarrio(s, b.id).unlocked = true));
+        // También los personajes que se ganan con desafíos (sólo para probar).
+        for (const c of CHARACTERS) if (isPlayable(c) && !s.unlocks.characters.includes(c.id)) s.unlocks.characters.push(c.id);
+      });
     }
     this.buildBaseMap();
     this.zoomIndex = isTouchPrimary() ? 2 : 1;
@@ -522,7 +528,7 @@ export class WorldMapScene extends Phaser.Scene {
     });
 
     const kb = this.input.keyboard;
-    kb?.on('keydown', (e: KeyboardEvent) => {
+    kb?.on('keydown', uniqueKeyEvents((e: KeyboardEvent) => {
       if (this.animating) return;
       switch (e.code) {
         case 'ArrowLeft':
@@ -563,7 +569,7 @@ export class WorldMapScene extends Phaser.Scene {
         default:
           break;
       }
-    });
+    }));
   }
 
   /** Navegación espacial: el barrio más cercano en la dirección pedida. */

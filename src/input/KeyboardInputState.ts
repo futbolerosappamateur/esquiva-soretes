@@ -12,6 +12,8 @@ export class KeyboardInputState {
   private readonly held = new Set<string>();
   private jumpPressed = false;
   private pausePressed = false;
+  private specialPressed = false;
+  private restartPressed = false;
 
   constructor(private readonly bindings: KeyBindings = KEY_BINDINGS) {}
 
@@ -22,6 +24,8 @@ export class KeyboardInputState {
     if (repeat) return;
     if (this.bindings.jump.includes(code)) this.jumpPressed = true;
     if (this.bindings.pause.includes(code)) this.pausePressed = true;
+    if (this.bindings.special.includes(code)) this.specialPressed = true;
+    if (this.bindings.restart.includes(code)) this.restartPressed = true;
   }
 
   keyUp(code: string): void {
@@ -45,6 +49,18 @@ export class KeyboardInputState {
     return v;
   }
 
+  consumeSpecialPress(): boolean {
+    const v = this.specialPressed;
+    this.specialPressed = false;
+    return v;
+  }
+
+  consumeRestartPress(): boolean {
+    const v = this.restartPressed;
+    this.restartPressed = false;
+    return v;
+  }
+
   consumePausePress(): boolean {
     const v = this.pausePressed;
     this.pausePressed = false;
@@ -60,6 +76,8 @@ export class KeyboardInputState {
     this.held.clear();
     this.jumpPressed = false;
     this.pausePressed = false;
+    this.specialPressed = false;
+    this.restartPressed = false;
   }
 }
 

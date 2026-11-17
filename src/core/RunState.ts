@@ -1,5 +1,8 @@
 import { PLAYER_TUNING } from '../config/balance';
+import type { AchievementCounts } from '../data/achievements';
 import type { LevelRef } from '../data/campaign';
+import { DEFAULT_CHARACTER_ID } from '../data/characters';
+import type { GameMode } from './leaderboard';
 
 /** Qué le pasó a cada zapatilla perdida (para el ícono de la HUD). */
 export type LifeMark = 'poop' | 'car';
@@ -34,11 +37,20 @@ export interface Checkpoint {
   crossingsDone: number;
   missionDone: boolean;
   carHits: number;
+  /** Tiempo del cronómetro al llegar a la esquina y parciales de cada esquina. */
+  elapsedMs: number;
+  splits: number[];
+  missionsDone: number;
 }
 
 /** Estado de una partida de un nivel. */
 export interface RunState {
   levelRef: LevelRef;
+  /** Identificador único del intento (evita registrar dos veces el mismo récord). */
+  runId: string;
+  mode: GameMode;
+  /** Personaje elegido: no cambia durante la partida (ni al reintentar desde un checkpoint). */
+  characterId: string;
   /** Semilla forzada por depuración (?seed); null = la del nivel. */
   seed: number | null;
   lives: number;
@@ -50,53 +62,87 @@ export interface RunState {
   coinsBanked: number;
   /** Veces que se retomó desde un checkpoint. */
   continues: number;
+  /** Partida asistida (checkpoint o atajo de depuración): no entra al ranking de velocidad. */
+  assisted: boolean;
   checkpoint: Checkpoint | null;
   /** Soretes esquivados que ya se sumaron a las estadísticas guardadas. */
   dodgesSubmitted: number;
   missionDone: boolean;
+  /** Misiones completadas en la partida (para la pantalla de resultados). */
+  missionsDone: number;
   /** Bonus de primera vez de una misión ganado y todavía no acreditado (se guarda con las monedas). */
   missionFirstPending: string | null;
   crossingsDone: number;
   carHits: number;
+  /** Logros de esta partida todavía no acreditados al perfil. */
+  achievements: AchievementCounts;
+  /** Tiempo con el que arranca el cronómetro (al retomar desde un checkpoint). */
+  startElapsedMs: number;
+  splits: number[];
 }
 
-export function createRun(levelRef: LevelRef, seed: number | null = null): RunState {
+let runCounter = 0;
+export function newRunId(): string {
+  runCounter++;
+  return `r-${Date.now().toString(36)}-${runCounter.toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+export interface RunOptions {
+  seed?: number | null;
+  mode?: GameMode;
+  characterId?: string;
+}
+
+export function createRun(levelRef: LevelRef, opts: RunOptions = {}): RunState {
   return {
     levelRef: { ...levelRef },
-    seed,
+    runId: newRunId(),
+    mode: opts.mode ?? 'normal',
+    characterId: opts.characterId ?? DEFAULT_CHARACTER_ID,
+    seed: opts.seed ?? null,
     lives: PLAYER_TUNING.lives,
     lifeMarks: [],
     poopHits: 0,
     coins: 0,
     coinsBanked: 0,
     continues: 0,
+    assisted: false,
     checkpoint: null,
     dodgesSubmitted: 0,
     missionDone: false,
+    missionsDone: 0,
     missionFirstPending: null,
     crossingsDone: 0,
     carHits: 0,
+    achievements: {},
+    startElapsedMs: 0,
+    splits: [],
   };
 }
 
 /**
  * Partida nueva que retoma desde el último checkpoint: zapatillas limpias,
- * y puntaje, monedas y misiones exactamente como estaban en esa esquina.
+ * y puntaje, monedas, misiones y cronómetro exactamente como estaban en esa
+ * esquina. Queda marcada como asistida (no entra al ranking de velocidad).
  */
 export function runFromCheckpoint(run: RunState): RunState {
   const cp = run.checkpoint;
-  if (!cp) return createRun(run.levelRef, run.seed);
+  if (!cp) return createRun(run.levelRef, { seed: run.seed, mode: run.mode, characterId: run.characterId });
   return {
-    ...createRun(run.levelRef, run.seed),
+    ...createRun(run.levelRef, { seed: run.seed, mode: run.mode, characterId: run.characterId }),
     coins: cp.coins,
     // Lo de antes del checkpoint ya se acreditó al llegar a esa esquina.
     coinsBanked: cp.coins,
     continues: run.continues + 1,
-    checkpoint: { ...cp, score: { ...cp.score } },
+    assisted: true,
+    checkpoint: { ...cp, score: { ...cp.score }, splits: [...cp.splits] },
     dodgesSubmitted: run.dodgesSubmitted,
     missionDone: cp.missionDone,
+    missionsDone: cp.missionsDone,
     crossingsDone: cp.crossingsDone,
     carHits: cp.carHits,
+    startElapsedMs: cp.elapsedMs,
+    splits: [...cp.splits],
   };
 }
 

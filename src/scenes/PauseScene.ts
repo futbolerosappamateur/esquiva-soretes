@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { ButtonMenu } from '../ui/ButtonMenu';
 import { addDim, addPanel } from '../ui/Panel';
 import { addText } from '../ui/text';
+import { uniqueKeyEvents } from '../input/keyEvents';
 
 export class PauseScene extends Phaser.Scene {
   private run: RunState | null = null;
@@ -30,7 +31,7 @@ export class PauseScene extends Phaser.Scene {
     const restart = make(147, TEXTS2.pause.restart, () => this.restartGame());
     const quit = make(170, TEXTS2.pause.quit, () => this.quitToMap());
     new ButtonMenu(this, [{ button: resume }, { button: restart }, { button: quit }], { onBack: () => this.resumeGame() });
-    this.input.keyboard?.on('keydown-P', () => this.resumeGame());
+    this.input.keyboard?.on('keydown-P', uniqueKeyEvents(() => this.resumeGame()));
   }
 
   private resumeGame(): void {
@@ -44,7 +45,9 @@ export class PauseScene extends Phaser.Scene {
     audio.setDucked(false);
     this.scene.stop(SCENES.HUD);
     const ref = this.run?.levelRef ?? { barrioId: 'san-telmo', levelIndex: 0 };
-    this.scene.start(SCENES.GAME, { run: createRun(ref, this.run?.seed ?? null) });
+    this.scene.start(SCENES.GAME, {
+      run: createRun(ref, { seed: this.run?.seed ?? null, mode: this.run?.mode, characterId: this.run?.characterId }),
+    });
   }
 
   private quitToMap(): void {

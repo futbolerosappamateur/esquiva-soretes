@@ -1,5 +1,5 @@
 import { DEPTH, LAYOUT } from '../config/constants';
-import { COIN_TUNING, CROSSING_TUNING, LEVEL_GEN } from '../config/balance';
+import { COIN_TUNING, CROSSING_TUNING, LEVEL_GEN, WATER_TUNING } from '../config/balance';
 import { clamp, lerp } from '../core/math';
 import { RNG } from '../core/rng';
 import type { ScriptedPattern, StreetBlock } from '../data/campaign';
@@ -47,8 +47,12 @@ export interface LevelGenOptions {
   blocks: BlockSpec[];
   /** Multiplicador de tránsito de los cruces. */
   traffic?: number;
-  /** Cuadra con la misión de la basura (o null). */
+  /** Cuadra con la misión del nivel (o null). */
   missionBlock?: number | null;
+  /** Misión del nivel (por defecto, la basura del portero). */
+  missionId?: string;
+  /** Cuadras donde riega una vecina. */
+  waterBlocks?: number[];
   coins?: boolean;
 }
 
@@ -74,6 +78,7 @@ export function generateLevelLayout(opts: LevelGenOptions): LevelLayout {
     npcs: [],
     coins: [],
     mission: null,
+    waterLadies: [],
     crossStreetX: 0,
     finalStreet: null,
     backDecor: [],
@@ -118,15 +123,21 @@ export function generateLevelLayout(opts: LevelGenOptions): LevelLayout {
   layout.blocks.forEach((seg, i) => {
     const spec = opts.blocks[i];
     placeProps(layout, seg, opts.theme, rng);
-    if (opts.missionBlock === i) placeMissionTarget(layout, seg);
+    const missionId = opts.missionId ?? 'trash-to-bin';
+    if (opts.missionBlock === i) placeMissionTarget(layout, seg, missionId);
     const reaches = placeObstacles(layout, seg, spec, opts.env, rng);
     if (opts.coins !== false) placeCoins(layout, seg, reaches, rng);
-    if (opts.missionBlock === i) placeMissionItems(layout, seg, reaches, rng);
+    if (opts.missionBlock === i) {
+      if (missionId === 'lost-dog') placeLostDog(layout, seg, reaches, rng);
+      else placeMissionItems(layout, seg, reaches, rng);
+    }
     placePigeons(layout, seg, rng);
     placeNpcs(layout, seg, rng);
   });
   placeDecor(layout, opts.env, rng);
   placeCars(layout, opts.theme, rng);
+  // Con su propia semilla: agregar vecinas no cambia el resto del nivel.
+  if (opts.waterBlocks?.length) placeWaterLadies(layout, opts.waterBlocks, new RNG((opts.seed ^ 0x5a17e3) >>> 0));
   return layout;
 }
 
@@ -231,9 +242,17 @@ function placeProps(layout: LevelLayout, seg: BlockSegment, theme: NeighborhoodT
   }
 }
 
-/** El tacho de la misión: un cesto junto al cordón, cerca del final de la cuadra. */
-function placeMissionTarget(layout: LevelLayout, seg: BlockSegment): void {
+/**
+ * Dónde se entrega la misión, cerca del final de la cuadra: el tacho junto al
+ * cordón (basura) o la dueña del perro esperando junto a las fachadas.
+ */
+function placeMissionTarget(layout: LevelLayout, seg: BlockSegment, missionId: string): void {
   const tx = Math.round(seg.startX + (seg.endX - seg.startX) * 0.86);
+  if (missionId === 'lost-dog') {
+    const y = LAYOUT.walkMinY + 4;
+    layout.mission = { id: missionId, blockIndex: seg.index, giver: { npc: 'duenaPerro', x: tx, y }, items: [], target: { x: tx, y } };
+    return;
+  }
   // Se corren los props que quedarían encima.
   for (let k = layout.props.length - 1; k >= 0; k--) {
     const p = layout.props[k];
@@ -465,6 +484,47 @@ function placeCoins(layout: LevelLayout, seg: BlockSegment, reach: BlockReach, r
       if (layout.obstacles.some((o) => Math.abs(o.x - coin.x) < 14 && Math.abs(o.y - coin.y) < 9)) continue;
       layout.coins.push(coin);
     }
+  }
+}
+
+/** El perro perdido: a mitad de cuadra, en un lugar alcanzable; su dueña lo espera más adelante. */
+function placeLostDog(layout: LevelLayout, seg: BlockSegment, reach: BlockReach, rng: RNG): void {
+  if (!layout.mission) return;
+  const L = seg.endX - seg.startX;
+  const target = layout.mission.target;
+  // Que la dueña no quede parada sobre un obstáculo.
+  layout.obstacles = layout.obstacles.filter((o) => !(Math.abs(o.x - target.x) < 16 && o.y < target.y + 12));
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const lx = clamp(L * rng.range(0.38, 0.58), LEVEL_GEN.startClear, L - LEVEL_GEN.endClear);
+    const y = reachableY(reach, lx, rng.range(LAYOUT.walkMinY + 14, LAYOUT.walkMaxY - 14), rng);
+    if (y === null) continue;
+    const x = Math.round(lx + seg.startX);
+    if (layout.obstacles.some((o) => Math.abs(o.x - x) < 16 && Math.abs(o.y - y) < 10)) continue;
+    layout.mission.items.push({ x, y: Math.round(y), frame: 'dog' });
+    return;
+  }
+}
+
+/** Vecinas que riegan: paradas junto a las fachadas, lejos de la misión y de las esquinas. */
+function placeWaterLadies(layout: LevelLayout, blocks: number[], rng: RNG): void {
+  for (const index of blocks) {
+    const seg = layout.blocks[index];
+    if (!seg) continue;
+    const L = seg.endX - seg.startX;
+    let x = Math.round(seg.startX + L * rng.range(0.4, 0.62));
+    const busy = [layout.mission?.giver.x, layout.mission?.target.x].filter((v): v is number => typeof v === 'number');
+    for (let k = 0; k < 4 && busy.some((b) => Math.abs(b - x) < 130); k++) x = Math.min(seg.endX - LEVEL_GEN.endClear, x + 140);
+    // Que no quede tapada por un árbol, un farol o una parada de colectivo.
+    const hides = (vx: number) => layout.props.some((p) => p.kind !== 'bin' && p.kind !== 'binBags' && Math.abs(p.x - vx) < 30);
+    for (let k = 0; k < 8 && hides(x); k++) x += k % 2 === 0 ? 36 * (k + 1) : -36 * (k + 1);
+    if (busy.some((b) => Math.abs(b - x) < 90) || hides(x) || x < seg.startX + 220 || x > seg.endX - 120) continue;
+    const y = LAYOUT.walkMinY + 1;
+    // Que no quede parada sobre un obstáculo, y que el carril seco del cordón
+    // quede libre a su altura: siempre se puede pasar aunque esté regando.
+    const laneTop = LAYOUT.walkMaxY - WATER_TUNING.minLane;
+    const band = WATER_TUNING.halfWidth + 16;
+    layout.obstacles = layout.obstacles.filter((o) => !(Math.abs(o.x - x) < 16 && o.y < y + 12) && !(Math.abs(o.x - x) < band && o.y > laneTop - 10));
+    layout.waterLadies.push({ x, y, blockIndex: index, offset: rng.range(0, 1.8) });
   }
 }
 

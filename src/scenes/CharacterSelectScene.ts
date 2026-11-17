@@ -3,176 +3,233 @@ import { audio } from '../audio/AudioManager';
 import { GAME_HEIGHT, GAME_WIDTH, SCENES } from '../config/constants';
 import { UI_COLORS } from '../config/palette';
 import { TEXTS2 } from '../config/texts';
-import { spendCoins } from '../core/progress';
+import { unlockProgress } from '../core/achievementsLogic';
+import { formatTime } from '../core/LevelClock';
+import type { GameMode } from '../core/leaderboard';
+import { formatThousands } from '../core/math';
+import { recordsRepo } from '../core/recordsRepository';
 import { createRun } from '../core/RunState';
 import { saveStore } from '../core/save';
-import type { LevelRef } from '../data/campaign';
-import { CHARACTERS, getCharacter } from '../data/characters';
+import { ABILITIES, abilityCooldown } from '../data/abilities';
+import { ACHIEVEMENTS } from '../data/achievements';
+import { getLevel, type LevelRef } from '../data/campaign';
+import { CHARACTERS, isPlayable, statBars, type CharacterDef } from '../data/characters';
 import { ANIM } from '../graphics/animations';
 import { ensureCharacterPreview } from '../graphics/characterTextures';
 import { FX_FRAMES, ICON_FRAMES, TEX } from '../graphics/keys';
+import { ensurePanelTexture } from '../graphics/textures/uiTextures';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
 import { Button } from '../ui/Button';
-import { ButtonMenu } from '../ui/ButtonMenu';
 import { addText } from '../ui/text';
+import { uniqueKeyEvents } from '../input/keyEvents';
+
+const COLS = 3;
+const CELL_W = 44;
+const CELL_H = 50;
+const GRID_X = 10;
+const GRID_Y = 30;
+const PANEL = { x: 152, y: 28, w: 322, h: 210 };
 
 /**
- * Selección de personaje (antes de cada partida). Todos tienen las mismas
- * capacidades: la elección es sólo visual y se guarda en LocalStorage.
+ * Selección de personaje (antes de cada partida), con estética arcade.
+ * Muestra habilidad, pasiva, desventaja, estadísticas, récords con ese
+ * personaje y, si está bloqueado, el desafío que falta cumplir.
+ * El personaje no se puede cambiar en medio de una partida.
  */
 export class CharacterSelectScene extends Phaser.Scene {
   private levelRef: LevelRef = { barrioId: 'san-telmo', levelIndex: 0 };
+  private mode: GameMode = 'normal';
   private index = 0;
-  private sprites: Phaser.GameObjects.Sprite[] = [];
-  private locks: (Phaser.GameObjects.Image | null)[] = [];
-  private nameText!: Phaser.GameObjects.BitmapText;
-  private descText!: Phaser.GameObjects.BitmapText;
-  private costText!: Phaser.GameObjects.BitmapText;
-  private coinsText!: Phaser.GameObjects.BitmapText;
+  private cells: { frame: Phaser.GameObjects.Image; sprite: Phaser.GameObjects.Sprite }[] = [];
+  private detail: Phaser.GameObjects.GameObject[] = [];
   private playButton!: Button;
-  private unlockButton!: Button;
-  private marker!: Phaser.GameObjects.Image;
 
   constructor() {
     super(SCENES.CHARACTER);
   }
 
-  init(data: { levelRef?: LevelRef }): void {
+  init(data: { levelRef?: LevelRef; mode?: GameMode }): void {
     if (data?.levelRef) this.levelRef = data.levelRef;
-    this.sprites = [];
-    this.locks = [];
+    this.mode = data?.mode ?? 'normal';
+    this.cells = [];
+    this.detail = [];
   }
 
   create(): void {
-    const cx = GAME_WIDTH / 2;
     const t = TEXTS2.character;
     this.cameras.main.setBackgroundColor('#2a1d33');
-    addText(this, cx, 8, t.title, { scale: 2, color: UI_COLORS.yellow, origin: [0.5, 0] });
-    this.add.image(GAME_WIDTH - 60, 14, TEX.icons, ICON_FRAMES.coin);
-    this.coinsText = addText(this, GAME_WIDTH - 52, 10, '', { color: UI_COLORS.yellow });
+    addText(this, 10, 6, t.title, { scale: 2, color: UI_COLORS.yellow });
+    const found = getLevel(this.levelRef);
+    if (found) {
+      const modeLabel = this.mode === 'timeTrial' ? TEXTS2.hud.timeTrial : 'NORMAL';
+      addText(this, GAME_WIDTH - 8, 8, `${found.barrio.name} · NIVEL ${found.level.number} · ${modeLabel}`, { outline: false, color: UI_COLORS.gray, origin: [1, 0] });
+    }
+    this.add.image(GAME_WIDTH - 60, 22, TEX.icons, ICON_FRAMES.coin);
+    addText(this, GAME_WIDTH - 52, 18, `${saveStore.get().wallet.coins}`, { color: UI_COLORS.yellow });
 
     const save = saveStore.get();
-    this.index = Math.max(0, CHARACTERS.findIndex((c) => c.id === save.selectedCharacter));
-    const spacing = 88;
-    const x0 = cx - ((CHARACTERS.length - 1) * spacing) / 2;
-    const floorY = 132;
-    const floor = this.add.graphics();
-    floor.fillStyle(0x3b2741, 1).fillRect(0, floorY - 2, GAME_WIDTH, 30);
-    floor.fillStyle(0x4a3657, 1).fillRect(0, floorY - 2, GAME_WIDTH, 2);
     CHARACTERS.forEach((c, i) => {
+      const col = i % COLS;
+      const row = Math.floor(i / COLS);
+      const x = GRID_X + col * CELL_W + CELL_W / 2;
+      const y = GRID_Y + row * CELL_H;
+      const frame = this.add.image(x, y + CELL_H / 2, ensurePanelTexture(this.textures, CELL_W - 2, CELL_H - 2)).setInteractive({ useHandCursor: true });
       const key = ensureCharacterPreview(this, c.id);
-      const x = Math.round(x0 + i * spacing);
-      this.add.image(x, floorY, TEX.fx, FX_FRAMES.shadow).setScale(2).setAlpha(0.35);
-      const s = this.add.sprite(x, floorY, key, 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY).setScale(2);
-      s.play({ key: ANIM.preview(c.id), startFrame: i % 3 });
-      s.setInteractive({ useHandCursor: true, pixelPerfect: false });
-      s.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => (this.index === i ? this.confirm() : this.setIndex(i, true)));
-      this.sprites.push(s);
-      this.locks.push(null);
+      const sprite = this.add.sprite(x, y + CELL_H - 3, key, 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY);
+      sprite.play({ key: ANIM.preview(c.id), startFrame: i % 3 });
+      const unlocked = this.isUnlocked(c);
+      if (!unlocked) {
+        // Silueta con candado (y signo de pregunta si es un personaje futuro).
+        sprite.setTint(0x120c18).setAlpha(0.9);
+        this.add.image(x + 12, y + 12, TEX.icons, ICON_FRAMES.lock);
+        if (c.unlock.kind === 'future') addText(this, x - 14, y + 4, '?', { color: UI_COLORS.gray });
+      } else if (!save.seenCharacters.includes(c.id)) {
+        addText(this, x, y + 2, '¡NUEVO!', { outline: true, color: UI_COLORS.green, origin: [0.5, 0] });
+      }
+      frame.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => (this.index === i ? this.confirm() : this.setIndex(i, true)));
+      this.cells.push({ frame, sprite });
     });
-    this.marker = this.add.image(0, 0, TEX.icons, ICON_FRAMES.arrowDown).setScale(2);
-    this.tweens.add({ targets: this.marker, y: '+=4', duration: 340, yoyo: true, repeat: -1 });
 
-    this.nameText = addText(this, cx, 160, '', { scale: 2, color: UI_COLORS.white, origin: [0.5, 0] });
-    this.descText = addText(this, cx, 180, '', { color: UI_COLORS.cream, origin: [0.5, 0], align: 'center', maxWidth: 380 });
-    this.costText = addText(this, cx, 194, '', { color: UI_COLORS.orange, origin: [0.5, 0] });
-    addText(this, cx, GAME_HEIGHT - 10, t.sameStats, { outline: false, color: UI_COLORS.gray, origin: [0.5, 0.5] });
+    this.add.image(PANEL.x + PANEL.w / 2, PANEL.y + PANEL.h / 2, ensurePanelTexture(this.textures, PANEL.w, PANEL.h));
+    this.playButton = new Button(this, GAME_WIDTH / 2 + 60, GAME_HEIGHT - 16, t.play, { width: 150, height: 20, onClick: () => this.confirm() });
+    const back = new Button(this, 80, GAME_HEIGHT - 16, t.back, { width: 120, height: 20, onClick: () => this.back() });
+    back.container.setDepth(5);
+    addText(this, GAME_WIDTH / 2 + 60, GAME_HEIGHT - 32, t.locked4ever, { outline: false, color: UI_COLORS.gray, origin: [0.5, 0] });
 
-    this.playButton = new Button(this, cx - 70, 222, t.play, { width: 130, height: 19, onClick: () => this.confirm() });
-    this.unlockButton = new Button(this, cx - 70, 222, t.unlock, { width: 130, height: 19, onClick: () => this.unlock() });
-    const back = new Button(this, cx + 70, 222, t.back, { width: 120, height: 19, onClick: () => this.back() });
-    new ButtonMenu(this, [{ button: this.playButton }, { button: back }], { onBack: () => this.back() }).setEnabled(false);
-
-    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
-      if (e.code === 'ArrowLeft' || e.code === 'KeyA') this.setIndex(this.index - 1, true);
-      else if (e.code === 'ArrowRight' || e.code === 'KeyD') this.setIndex(this.index + 1, true);
+    this.input.keyboard?.on('keydown', uniqueKeyEvents((e: KeyboardEvent) => {
+      const n = CHARACTERS.length;
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') this.setIndex((this.index - 1 + n) % n, true);
+      else if (e.code === 'ArrowRight' || e.code === 'KeyD') this.setIndex((this.index + 1) % n, true);
+      else if (e.code === 'ArrowUp' || e.code === 'KeyW') this.setIndex((this.index - COLS + n) % n, true);
+      else if (e.code === 'ArrowDown' || e.code === 'KeyS') this.setIndex((this.index + COLS) % n, true);
       else if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') this.confirm();
       else if (e.code === 'Escape' || e.code === 'Backspace') this.back();
-    });
-    this.refreshLocks();
-    this.setIndex(this.index, false);
+    }));
+
+    const selected = CHARACTERS.findIndex((c) => c.id === save.selectedCharacter);
+    this.setIndex(Math.max(0, selected), false);
     this.cameras.main.fadeIn(200, 18, 12, 24);
   }
 
-  private isUnlocked(id: string): boolean {
-    return saveStore.get().unlocks.characters.includes(id);
+  private isUnlocked(c: CharacterDef): boolean {
+    return isPlayable(c) && saveStore.get().unlocks.characters.includes(c.id);
   }
 
-  private refreshLocks(): void {
-    CHARACTERS.forEach((c, i) => {
-      const s = this.sprites[i];
-      const unlocked = this.isUnlocked(c.id);
-      s.setTint(unlocked ? 0xffffff : 0x3a3048);
-      if (!unlocked && !this.locks[i]) this.locks[i] = this.add.image(s.x, s.y - 50, TEX.icons, ICON_FRAMES.lock).setScale(2);
-      if (unlocked && this.locks[i]) {
-        this.locks[i]!.destroy();
-        this.locks[i] = null;
-      }
-    });
-    this.coinsText.setText(`${saveStore.get().wallet.coins}`);
+  private keep<T extends Phaser.GameObjects.GameObject>(o: T): T {
+    this.detail.push(o);
+    return o;
   }
 
   private setIndex(i: number, sound: boolean): void {
-    const n = CHARACTERS.length;
-    this.index = ((i % n) + n) % n;
+    this.index = i;
     if (sound) audio.play('click');
-    const c = CHARACTERS[this.index];
-    const s = this.sprites[this.index];
-    this.marker.setPosition(s.x, 40);
-    this.sprites.forEach((sp, k) => sp.setScale(k === this.index ? 2 : 2).setAlpha(k === this.index ? 1 : 0.75));
-    this.nameText.setText(c.name);
-    this.descText.setText(c.description);
-    const unlocked = this.isUnlocked(c.id);
-    if (!unlocked && c.unlock.kind === 'coins') {
-      const enough = saveStore.get().wallet.coins >= c.unlock.cost;
-      this.costText.setText(`${TEXTS2.character.locked} · ${c.unlock.cost} MONEDAS${enough ? '' : ` · ${TEXTS2.character.notEnough}`}`);
-      this.unlockButton.setEnabled(enough);
-    } else {
-      this.costText.setText('');
-    }
-    this.playButton.container.setVisible(unlocked);
-    this.unlockButton.container.setVisible(!unlocked);
-    this.playButton.setEnabled(unlocked);
-    if (unlocked) this.unlockButton.setEnabled(false);
-    if (unlocked) saveStore.update((sv) => (sv.selectedCharacter = c.id));
-  }
+    this.cells.forEach((cell, k) => cell.frame.setTint(k === i ? 0xffe08a : 0xffffff));
+    this.detail.forEach((o) => o.destroy());
+    this.detail = [];
+    const c = CHARACTERS[i];
+    const unlocked = this.isUnlocked(c);
+    const t = TEXTS2.character;
+    const px = PANEL.x + 8;
+    let y = PANEL.y + 6;
 
-  private unlock(): void {
-    const c = CHARACTERS[this.index];
-    if (c.unlock.kind !== 'coins' || this.isUnlocked(c.id)) return;
-    const cost = c.unlock.cost;
-    const ok = saveStore.update((s) => {
-      if (!spendCoins(s, cost)) return false;
-      s.unlocks.characters.push(c.id);
-      s.selectedCharacter = c.id;
-      return true;
+    // Imagen grande del personaje.
+    const key = ensureCharacterPreview(this, c.id);
+    this.keep(this.add.image(PANEL.x + 40, PANEL.y + 92, TEX.fx, FX_FRAMES.shadow).setScale(2).setAlpha(0.35));
+    const big = this.keep(this.add.sprite(PANEL.x + 40, PANEL.y + 92, key, 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY).setScale(2));
+    big.play(ANIM.preview(c.id));
+    if (!unlocked) big.setTint(0x120c18);
+
+    const tx = PANEL.x + 84;
+    this.keep(addText(this, tx, y, c.name, { color: UI_COLORS.yellow }));
+    y += 11;
+    this.keep(addText(this, tx, y, c.role, { outline: false, color: UI_COLORS.orange }));
+    y += 10;
+    this.keep(addText(this, tx, y, c.description, { outline: false, color: UI_COLORS.cream, maxWidth: PANEL.w - 92 }));
+    y = PANEL.y + 50;
+
+    // Barras de estadísticas.
+    const bars = statBars(c.stats);
+    const g = this.keep(this.add.graphics());
+    ([
+      [t.speed, bars.speed],
+      [t.jump, bars.jump],
+      [t.control, bars.control],
+    ] as [string, number][]).forEach(([label, v], k) => {
+      const by = y + k * 10;
+      this.keep(addText(this, tx, by, label, { outline: false, color: UI_COLORS.gray }));
+      for (let b = 0; b < 5; b++) {
+        g.fillStyle(b < v ? 0x6fe07a : 0x4a3657, 1).fillRect(tx + 52 + b * 9, by + 1, 7, 5);
+      }
     });
-    if (!ok) {
-      audio.play('lifeLost');
-      return;
+    y = PANEL.y + 84;
+
+    // Habilidad, pasiva y desventaja.
+    if (c.ability) {
+      const info = ABILITIES[c.ability];
+      this.keep(this.add.image(px + 8, y + 6, TEX.icons, info.icon));
+      this.keep(addText(this, px + 20, y, `${t.special}: ${info.name}`, { color: UI_COLORS.yellow }));
+      this.keep(addText(this, PANEL.x + PANEL.w - 8, y, `${t.cooldown} ${abilityCooldown(c.ability)} S`, { outline: false, color: UI_COLORS.gray, origin: [1, 0] }));
+      y += 10;
+      this.keep(addText(this, px + 20, y, info.description, { outline: false, color: UI_COLORS.cream, maxWidth: PANEL.w - 30 }));
+      y += 20;
+    } else {
+      this.keep(addText(this, px, y, `${t.special}: ${t.soon}`, { color: UI_COLORS.gray }));
+      y += 20;
     }
-    audio.play('unlock');
-    this.refreshLocks();
-    this.setIndex(this.index, false);
+    this.keep(addText(this, px, y, `${t.passive}: ${c.passive.name}`, { color: UI_COLORS.celeste }));
+    y += 10;
+    this.keep(addText(this, px, y, c.passive.description, { outline: false, color: UI_COLORS.cream, maxWidth: PANEL.w - 16 }));
+    y += 12;
+    if (c.drawback) {
+      this.keep(addText(this, px, y, `${t.drawback}: ${c.drawback}`, { outline: false, color: 0xff9a8e, maxWidth: PANEL.w - 16 }));
+      y += 12;
+    }
+
+    // Récords con este personaje en este nivel, o el desafío para desbloquearlo.
+    y = PANEL.y + PANEL.h - 26;
+    const found = getLevel(this.levelRef);
+    if (unlocked && found) {
+      const best = recordsRepo.profileCharacterBest(found.level.id, this.mode, saveStore.activeProfile().id, c.id);
+      this.keep(this.add.image(px + 5, y + 4, TEX.icons, ICON_FRAMES.clock));
+      this.keep(addText(this, px + 14, y, `${t.bestTime}: ${formatTime(best.time?.timeMs ?? null)}`, { color: UI_COLORS.white }));
+      this.keep(this.add.image(px + 5, y + 15, TEX.icons, ICON_FRAMES.trophy));
+      this.keep(addText(this, px + 14, y + 11, `${t.bestScore}: ${best.score ? formatThousands(best.score.score) : '-'}`, { color: UI_COLORS.white }));
+    } else if (c.unlock.kind !== 'starter') {
+      const prog = unlockProgress(saveStore.get(), c);
+      const label = ACHIEVEMENTS[c.unlock.counter].label;
+      this.keep(this.add.image(px + 5, y + 4, TEX.icons, ICON_FRAMES.lock));
+      const head = c.unlock.kind === 'future' ? t.futureCharacter : t.unlockBy;
+      this.keep(addText(this, px + 14, y, head, { color: UI_COLORS.orange }));
+      this.keep(addText(this, px + 14, y + 11, `${label}: ${prog.current}/${prog.target}`, { color: prog.done ? UI_COLORS.green : UI_COLORS.white }));
+    }
+
+    this.playButton.setEnabled(unlocked);
+    this.playButton.setText(unlocked ? t.play : c.unlock.kind === 'future' ? t.soon : t.locked);
+    if (unlocked) {
+      saveStore.update((s) => {
+        s.selectedCharacter = c.id;
+        if (!s.seenCharacters.includes(c.id)) s.seenCharacters.push(c.id);
+      });
+    }
   }
 
   private confirm(): void {
     const c = CHARACTERS[this.index];
-    if (!this.isUnlocked(c.id)) {
-      if (c.unlock.kind === 'coins' && saveStore.get().wallet.coins >= c.unlock.cost) this.unlock();
-      else audio.play('lifeLost');
+    if (!this.isUnlocked(c)) {
+      audio.play('lifeLost');
+      this.tweens.add({ targets: this.cells[this.index].frame, x: '+=3', duration: 50, yoyo: true, repeat: 2 });
       return;
     }
-    saveStore.update((s) => (s.selectedCharacter = getCharacter(c.id).id));
+    saveStore.update((s) => (s.selectedCharacter = c.id));
     audio.play('start');
     this.cameras.main.fadeOut(240, 18, 12, 24);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start(SCENES.GAME, { run: createRun(this.levelRef) });
+      this.scene.start(SCENES.GAME, { run: createRun(this.levelRef, { mode: this.mode, characterId: c.id }) });
     });
   }
 
   private back(): void {
     audio.play('click');
-    this.scene.start(SCENES.BARRIO, { barrioId: this.levelRef.barrioId });
+    this.scene.start(SCENES.BARRIO, { barrioId: this.levelRef.barrioId, focus: this.levelRef.levelIndex, mode: this.mode });
   }
 }

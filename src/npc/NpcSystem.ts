@@ -5,7 +5,7 @@ import { NPC_DEFS } from '../data/npcs';
 import { ANIM } from '../graphics/animations';
 import { FX_FRAMES, TEX } from '../graphics/keys';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
-import { addText } from '../ui/text';
+import { SpeechBubble } from '../ui/speechBubble';
 import { createBehavior } from './behaviors';
 import { NpcActor, type NpcContext, type NpcEvent, type NpcPlayerView } from './NpcActor';
 
@@ -20,8 +20,7 @@ export interface NpcPlacementSpec {
 class NpcView {
   readonly sprite: Phaser.GameObjects.Sprite;
   private readonly shadow: Phaser.GameObjects.Image;
-  private bubble?: Phaser.GameObjects.Container;
-  private bubbleTimer?: Phaser.Time.TimerEvent;
+  private bubble?: SpeechBubble;
   private current = '';
 
   constructor(
@@ -51,20 +50,7 @@ class NpcView {
 
   say(text: string): void {
     this.bubble?.destroy();
-    this.bubbleTimer?.remove(false);
-    const label = addText(this.scene, 0, 0, text, { outline: false, color: 0x21142b, maxWidth: 150, align: 'center', origin: [0.5, 1] });
-    const w = Math.ceil(label.width) + 8;
-    const h = Math.ceil(label.height) + 6;
-    const g = this.scene.add.graphics();
-    g.fillStyle(0xfff4d6, 1).fillRoundedRect(-w / 2, -h - 2, w, h, 3);
-    g.lineStyle(1, 0x21142b, 1).strokeRoundedRect(-w / 2, -h - 2, w, h, 3);
-    g.fillStyle(0xfff4d6, 1).fillTriangle(-3, -3, 3, -3, 0, 2);
-    label.setPosition(0, -5);
-    this.bubble = this.scene.add.container(this.actor.x, this.actor.y - 52, [g, label]).setDepth(DEPTH.floatingText);
-    this.bubbleTimer = this.scene.time.delayedCall(2800, () => {
-      this.bubble?.destroy();
-      this.bubble = undefined;
-    });
+    this.bubble = new SpeechBubble(this.scene, this.actor.x, this.actor.y - 52, text);
   }
 
   emote(): void {
@@ -82,7 +68,6 @@ class NpcView {
   }
 
   destroy(): void {
-    this.bubbleTimer?.remove(false);
     this.bubble?.destroy();
     this.sprite.destroy();
     this.shadow.destroy();

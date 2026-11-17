@@ -115,6 +115,14 @@ export class ScoreSystem {
     return lost;
   }
 
+  /** Resta puntos sin bajar de cero (por ejemplo, al mojarse). Devuelve lo restado. */
+  deduct(points: number): number {
+    const lost = Math.min(this.score, Math.max(0, points));
+    this.score -= lost;
+    this.penaltyPoints += lost;
+    return lost;
+  }
+
   addBonus(points: number): void {
     this.score += points;
     this.bonusPoints += points;

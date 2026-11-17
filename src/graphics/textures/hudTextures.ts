@@ -181,6 +181,96 @@ function litter(kind: 'paper' | 'can' | 'bottle'): PixelCanvas {
   return pc;
 }
 
+function paw(): PixelCanvas {
+  const pc = new PixelCanvas(11, 11);
+  pc.ellipse(2, 5, 7, 6, '#ff8a1f');
+  for (const [x, y] of [[1, 2], [4, 0], [7, 0], [9, 3]]) pc.ellipse(x, y, 3, 3, '#ff8a1f');
+  pc.outline(PAL.outline);
+  return pc;
+}
+
+function puddle(): PixelCanvas {
+  const pc = new PixelCanvas(20, 7);
+  pc.ellipse(0, 0, 20, 7, 'rgba(110, 170, 230, 0.75)');
+  pc.ellipse(4, 1, 8, 3, 'rgba(210, 235, 255, 0.8)');
+  return pc;
+}
+
+function clock(): PixelCanvas {
+  const pc = new PixelCanvas(11, 11);
+  pc.disc(5.5, 5.5, 5, '#fff4d6');
+  pc.vline(5, 2, 4, '#21142b');
+  pc.hline(5, 5, 3, '#21142b');
+  pc.outline(PAL.outline);
+  return pc;
+}
+
+function trophy(): PixelCanvas {
+  const pc = new PixelCanvas(12, 12);
+  pc.rect(2, 0, 8, 5, '#ffd23f');
+  pc.rect(3, 5, 6, 2, '#ffd23f');
+  pc.rect(5, 7, 2, 2, '#c98a1b');
+  pc.rect(3, 9, 6, 2, '#c98a1b');
+  pc.px(0, 1, '#ffd23f').px(0, 2, '#ffd23f').px(11, 1, '#ffd23f').px(11, 2, '#ffd23f');
+  pc.px(3, 1, '#fff3a0');
+  pc.outline(PAL.outline);
+  return pc;
+}
+
+/** Íconos de las habilidades (14×14, fondo transparente). */
+function abilityIcon(kind: string): PixelCanvas {
+  const pc = new PixelCanvas(14, 14);
+  const W = '#ffffff';
+  switch (kind) {
+    case 'dash':
+      for (let i = 0; i < 3; i++) pc.hline(1 + i, 4 + i * 3, 6, '#8fd6ff');
+      pc.rect(8, 3, 4, 8, W);
+      pc.line(12, 7, 9, 3, W).line(12, 7, 9, 11, W);
+      break;
+    case 'double-jump':
+      for (const y of [1, 7]) {
+        for (let i = 0; i < 3; i++) pc.hline(7 - i, y + i, 1 + i * 2, W);
+        pc.rect(6, y + 3, 3, 3, W);
+      }
+      break;
+    case 'turbo':
+      pc.line(8, 0, 4, 7, '#ffd23f', 2).line(4, 7, 9, 7, '#ffd23f', 2).line(9, 7, 5, 13, '#ffd23f', 2);
+      pc.hline(0, 4, 3, '#ff7ac8').hline(0, 9, 3, '#ff7ac8');
+      break;
+    case 'sprint':
+      pc.ellipse(4, 7, 9, 5, W);
+      pc.rect(4, 11, 9, 1, '#c4c8d2');
+      pc.line(1, 3, 5, 3, '#ffd23f').line(0, 6, 3, 6, '#ffd23f');
+      break;
+    case 'broom':
+      pc.line(10, 0, 5, 8, '#c99a5a', 2);
+      pc.rect(1, 8, 8, 5, '#e3c26a');
+      for (let x = 2; x < 9; x += 2) pc.vline(x, 9, 4, '#b8923a');
+      break;
+    case 'hose':
+      pc.disc(5, 8, 4, '#5a8fe0');
+      pc.line(2, 3, 5, 0, '#8fd6ff').line(8, 3, 11, 1, '#8fd6ff').line(10, 6, 13, 5, '#8fd6ff');
+      pc.px(4, 6, W);
+      break;
+    case 'sniff':
+      pc.ellipse(2, 5, 9, 8, '#c98a4b');
+      pc.disc(10, 7, 2.5, '#21142b');
+      pc.rect(1, 2, 3, 5, '#8a5a3a');
+      pc.px(6, 6, '#21142b');
+      break;
+    case 'whistle':
+      pc.rect(2, 6, 8, 5, '#c4c8d2');
+      pc.rect(9, 7, 4, 2, '#c4c8d2');
+      pc.disc(5, 8, 1.5, '#21142b');
+      pc.line(10, 4, 12, 1, W).line(7, 4, 7, 1, W);
+      break;
+    default:
+      break;
+  }
+  pc.outline(PAL.outline);
+  return pc;
+}
+
 export function generateHudTextures(textures: Phaser.Textures.TextureManager): void {
   packStrip(textures, TEX.icons, [
     { name: ICON_FRAMES.coin, canvas: coinFace(9) },
@@ -201,6 +291,18 @@ export function generateHudTextures(textures: Phaser.Textures.TextureManager): v
     { name: ICON_FRAMES.minus, canvas: plusMinus(false) },
     { name: ICON_FRAMES.back, canvas: back() },
     { name: ICON_FRAMES.flag, canvas: flag() },
+    { name: ICON_FRAMES.paw, canvas: paw() },
+    { name: ICON_FRAMES.puddle, canvas: puddle() },
+    { name: ICON_FRAMES.clock, canvas: clock() },
+    { name: ICON_FRAMES.trophy, canvas: trophy() },
+    { name: ICON_FRAMES.abDash, canvas: abilityIcon('dash') },
+    { name: ICON_FRAMES.abDoubleJump, canvas: abilityIcon('double-jump') },
+    { name: ICON_FRAMES.abTurbo, canvas: abilityIcon('turbo') },
+    { name: ICON_FRAMES.abSprint, canvas: abilityIcon('sprint') },
+    { name: ICON_FRAMES.abBroom, canvas: abilityIcon('broom') },
+    { name: ICON_FRAMES.abHose, canvas: abilityIcon('hose') },
+    { name: ICON_FRAMES.abSniff, canvas: abilityIcon('sniff') },
+    { name: ICON_FRAMES.abWhistle, canvas: abilityIcon('whistle') },
   ]);
   // Moneda girando.
   packStrip(textures, TEX.coin, [

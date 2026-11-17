@@ -43,8 +43,14 @@ export interface LevelDef {
   stars?: { two: number; three: number };
   /** Tránsito más o menos intenso que el normal (1 = normal). */
   traffic?: number;
-  /** Cuadra (índice) donde aparece el portero con la misión de la basura. */
+  /** Cuadra (índice) donde aparece la misión del nivel. */
   missionBlock?: number;
+  /** Misión del nivel (por defecto, la basura del portero). */
+  missionId?: string;
+  /** Cuadras (índices) donde una vecina riega la vereda. */
+  waterBlocks?: number[];
+  /** Tiempos (segundos) para el bonus de velocidad; si no se indican, se calculan solos. */
+  timeTargets?: { excellent: number; good: number; ok: number };
 }
 
 export interface BarrioDef {
@@ -92,6 +98,7 @@ const SAN_TELMO: BarrioDef = {
       difficulty: [0.0, 0.62],
       scripts: { 0: INTRO_SCRIPT },
       missionBlock: 1,
+      waterBlocks: [3],
     },
     {
       id: 'san-telmo-2',
@@ -102,6 +109,7 @@ const SAN_TELMO: BarrioDef = {
       difficulty: [0.2, 0.78],
       traffic: 0.85,
       missionBlock: 2,
+      missionId: 'lost-dog',
     },
     {
       id: 'san-telmo-3',
@@ -111,6 +119,7 @@ const SAN_TELMO: BarrioDef = {
       blocks: route('PERÚ', SAN_TELMO_SOUTH),
       difficulty: [0.35, 0.92],
       missionBlock: 1,
+      waterBlocks: [2, 3],
     },
   ],
 };
@@ -132,6 +141,8 @@ const MONSERRAT: BarrioDef = {
       difficulty: [0.3, 0.8],
       traffic: 1.15,
       missionBlock: 2,
+      missionId: 'lost-dog',
+      waterBlocks: [1, 3],
     },
     {
       id: 'monserrat-2',
@@ -152,6 +163,8 @@ const MONSERRAT: BarrioDef = {
       difficulty: [0.52, 0.96],
       traffic: 1.2,
       missionBlock: 3,
+      missionId: 'lost-dog',
+      waterBlocks: [2, 4],
     },
   ],
 };

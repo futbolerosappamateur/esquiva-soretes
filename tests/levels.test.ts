@@ -3,6 +3,7 @@ import { CAMPAIGN_TUNING, LEVEL_GEN } from '../src/config/balance';
 import { LAYOUT } from '../src/config/constants';
 import { BARRIOS } from '../src/data/campaign';
 import { ENVIRONMENTS } from '../src/data/environments';
+import { MISSIONS } from '../src/data/missions';
 import { OBSTACLE_TYPES, variantOf } from '../src/entities/obstacles/ObstacleTypes';
 import { buildLevel, estimatedDuration, starsFor } from '../src/world/levelBuilder';
 import { PROP_DEFS, type LevelLayout } from '../src/world/LevelLayout';
@@ -60,7 +61,7 @@ describe('Niveles generados', () => {
         }
       });
 
-      it('las monedas y la basura de la misión se pueden juntar sin pisar nada', () => {
+      it('las monedas y los objetos de la misión se pueden juntar sin pisar nada', () => {
         const fp = PLAYER_TUNING.footprint;
         const safe = (x: number, y: number) =>
           !layout.obstacles.some((o) => footprintsOverlap(x, y, fp, o.x, o.y, variantOf(o.type, o.variant).footprint));
@@ -68,7 +69,8 @@ describe('Niveles generados', () => {
         for (const c of layout.coins) expect(safe(c.x, c.y), `moneda en ${c.x}`).toBe(true);
         if (built.level.missionBlock !== undefined) {
           expect(layout.mission).not.toBeNull();
-          expect(layout.mission!.items.length).toBe(3);
+          expect(layout.mission!.id).toBe(built.level.missionId ?? 'trash-to-bin');
+          expect(layout.mission!.items.length).toBe(MISSIONS[layout.mission!.id].itemsRequired);
           for (const it of layout.mission!.items) expect(safe(it.x, it.y)).toBe(true);
         }
       });

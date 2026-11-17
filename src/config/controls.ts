@@ -13,7 +13,11 @@ export const KEY_BINDINGS = {
   up: ['ArrowUp', 'KeyW'],
   down: ['ArrowDown', 'KeyS'],
   jump: ['Space', 'KeyX', 'KeyJ', 'KeyK'],
+  /** Habilidad especial del personaje. */
+  special: ['KeyE'],
   pause: ['Escape', 'KeyP'],
+  /** Reinicio rápido (sólo en contrarreloj). */
+  restart: ['KeyR'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type InputAction = keyof typeof KEY_BINDINGS;

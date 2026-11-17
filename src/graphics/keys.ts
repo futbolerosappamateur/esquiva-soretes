@@ -95,6 +95,18 @@ export const ICON_FRAMES = {
   minus: 'minus',
   back: 'back',
   flag: 'flag',
+  paw: 'paw',
+  puddle: 'puddle',
+  clock: 'clock',
+  trophy: 'trophy',
+  abDash: 'ab-dash',
+  abDoubleJump: 'ab-double-jump',
+  abTurbo: 'ab-turbo',
+  abSprint: 'ab-sprint',
+  abBroom: 'ab-broom',
+  abHose: 'ab-hose',
+  abSniff: 'ab-sniff',
+  abWhistle: 'ab-whistle',
 } as const;
 
 /** Nombres de frames dentro de la hoja de soretes. */

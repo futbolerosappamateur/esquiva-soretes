@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { DOG_KINDS, TEX } from './keys';
+import { WAVING_NPC_LOOKS } from './textures/npcActorTextures';
 
 /** Claves de animación. */
 export const ANIM = {
@@ -16,6 +17,7 @@ export const ANIM = {
   coin: 'coin-spin',
   npcSweep: (look: string) => `npc-${look}-sweep`,
   npcWave: (look: string) => `npc-${look}-wave`,
+  npcWater: (look: string) => `npc-${look}-water`,
   preview: (characterId: string) => `preview-${characterId}`,
 } as const;
 
@@ -59,8 +61,7 @@ export function createAnimations(anims: Phaser.Animations.AnimationManager): voi
   make(ANIM.fly, TEX.fly, ['fly0', 'fly1'], 20);
   make(ANIM.mascot, TEX.mascot, ['idle', 'idle', 'idle', 'idle', 'idle', 'idle', 'blink', 'idle', 'idle', 'idle'], 6);
   make(ANIM.coin, TEX.coin, ['c0', 'c1', 'c2', 'c3'], 8);
-  for (const look of ['portero', 'portero-alt']) {
-    make(ANIM.npcSweep(look), TEX.npc(look), ['sweep0', 'sweep1', 'sweep2', 'sweep1'], 5);
-    make(ANIM.npcWave(look), TEX.npc(look), ['wave', 'idle', 'wave', 'idle'], 4, 0);
-  }
+  for (const look of ['portero', 'portero-alt']) make(ANIM.npcSweep(look), TEX.npc(look), ['sweep0', 'sweep1', 'sweep2', 'sweep1'], 5);
+  for (const look of WAVING_NPC_LOOKS) make(ANIM.npcWave(look), TEX.npc(look), ['wave', 'idle', 'wave', 'idle'], 4, 0);
+  make(ANIM.npcWater('senora'), TEX.npc('senora'), ['water0', 'water1'], 8);
 }
