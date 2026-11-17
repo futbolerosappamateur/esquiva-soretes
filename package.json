@@ -1,0 +1,20 @@
+{
+  "name": "esquiva-soretes",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ESQUIVA SORETES: una aventura de mierda por Buenos Aires. Arcade 2.5D hecho con Phaser 3 + TypeScript + Vite.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}
