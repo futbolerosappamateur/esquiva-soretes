@@ -36,6 +36,15 @@ export interface CharacterLook {
   mouth: string;
   tongue: string;
   blush: string;
+  /** Peinado / accesorio de cabeza (por defecto, pelo corto). */
+  hairStyle?: 'short' | 'ponytail' | 'headband' | 'bald' | 'cap';
+  /** Color de vincha o gorra. */
+  accent?: string;
+  mustache?: boolean;
+  /** Remera a rayas (por defecto), lisa o campera con cierre. */
+  torso?: 'stripes' | 'solid' | 'zip';
+  /** Pantalón largo (por defecto) o short (se ven las piernas). */
+  legs?: 'pants' | 'shorts';
 }
 
 /** Look por defecto: remera a rayas celeste y blanca, jean y zapatillas blancas. */
@@ -75,13 +84,13 @@ export const PLAYER_FRAME = {
 
 export type Expression = 'normal' | 'happy' | 'focus' | 'shock' | 'lookDown' | 'disgust' | 'dizzy' | 'blink';
 type FootStyle = 'flat' | 'toe' | 'sole';
-type Pt = readonly [number, number];
-interface Limb {
+export type Pt = readonly [number, number];
+export interface Limb {
   a: Pt;
   b: Pt;
   c: Pt;
 }
-interface Pose {
+export interface Pose {
   hip: Pt;
   neck: Pt;
   head: Expression;
@@ -194,11 +203,39 @@ function headPalette(look: CharacterLook, expr: Expression): CharPalette {
 /** Dibuja la cabeza con la expresión pedida. (x, y) es la esquina superior izquierda. */
 export function drawHead(pc: PixelCanvas, x: number, y: number, look: CharacterLook, expr: Expression, flip = false): void {
   const pal = headPalette(look, expr);
+  const fx = (ox: number) => (flip ? x + 15 - ox : x + ox);
+  // La colita va detrás de la cabeza (del lado de la nuca).
+  if (look.hairStyle === 'ponytail') {
+    for (const [ox, oy] of [[-1, 3], [-2, 4], [-2, 5], [-3, 6], [-3, 7], [-3, 8], [-2, 9], [-2, 10], [-1, 4], [-1, 5], [-2, 6], [-2, 7], [-2, 8]]) pc.px(fx(ox), y + oy, look.hairDark);
+    pc.px(fx(0), y + 4, look.accent ?? '#ff6fa8');
+    pc.px(fx(0), y + 5, look.accent ?? '#ff6fa8');
+  }
   pc.map(x, y, HEAD_BASE, pal, flip);
+  if (look.hairStyle === 'bald') {
+    // Pelado arriba, con pelo canoso a los costados.
+    for (let oy = 0; oy < 6; oy++) {
+      for (let ox = 3; ox < 15; ox++) {
+        if (HEAD_BASE[oy][ox] === 'H' || HEAD_BASE[oy][ox] === 'h') pc.px(fx(ox), y + oy, oy === 1 && ox > 6 && ox < 10 ? '#ffffff' : look.skin);
+      }
+    }
+  }
+  if (look.hairStyle === 'headband') {
+    for (let ox = 1; ox < 15; ox++) pc.px(fx(ox), y + 5, look.accent ?? '#ff8a1f');
+    pc.px(fx(0), y + 6, look.accent ?? '#ff8a1f');
+  }
+  if (look.hairStyle === 'cap') {
+    const c = look.accent ?? '#2a3a5a';
+    for (let oy = 0; oy < 5; oy++) for (let ox = 2; ox < 15; ox++) if (HEAD_BASE[oy][ox] !== '.') pc.px(fx(ox), y + oy, oy === 4 ? '#1f1a24' : c);
+    for (let ox = 11; ox < 18; ox++) pc.px(fx(ox), y + 5, c);
+  }
   for (const [ox, oy, key] of EXPRESSIONS[expr]) {
     const color = pal[key];
     if (!color) continue;
-    pc.px(flip ? x + 15 - ox : x + ox, y + oy, color);
+    pc.px(fx(ox), y + oy, color);
+  }
+  if (look.mustache && expr !== 'shock' && expr !== 'happy') {
+    for (const ox of [10, 11, 12, 13, 14]) pc.px(fx(ox), y + 10, look.hairDark);
+    pc.px(fx(14), y + 11, look.hairDark);
   }
 }
 
@@ -237,9 +274,9 @@ function drawShoe(pc: PixelCanvas, ankle: Pt, style: FootStyle, look: CharacterL
 // Cuerpo
 // ---------------------------------------------------------------------------
 
-function drawLeg(pc: PixelCanvas, leg: Limb, color: string): void {
+function drawLeg(pc: PixelCanvas, leg: Limb, color: string, lower = color): void {
   pc.line(leg.a[0], leg.a[1], leg.b[0], leg.b[1], color, 4);
-  pc.line(leg.b[0], leg.b[1], leg.c[0], leg.c[1], color, 3);
+  pc.line(leg.b[0], leg.b[1], leg.c[0], leg.c[1], lower, 3);
 }
 
 function drawArm(pc: PixelCanvas, arm: Limb, sleeve: string, skin: string): void {
@@ -262,7 +299,9 @@ function drawTorso(pc: PixelCanvas, neck: Pt, hip: Pt, look: CharacterLook): voi
     const x1 = Math.round(cx + half);
     for (let x = x0; x < x1; x++) {
       const k = x - x0;
-      let c = Math.floor(k / 2) % 2 === 0 ? look.shirtA : look.shirtB;
+      const torso = look.torso ?? 'stripes';
+      let c = torso === 'stripes' ? (Math.floor(k / 2) % 2 === 0 ? look.shirtA : look.shirtB) : look.shirtA;
+      if (torso === 'zip' && x === Math.round(cx)) c = look.shirtB;
       if (k === 0) c = look.shirtShade;
       if (y >= bottom - 1) c = look.pants;
       pc.px(x, y, c);
@@ -272,22 +311,23 @@ function drawTorso(pc: PixelCanvas, neck: Pt, hip: Pt, look: CharacterLook): voi
   pc.rect(neck[0] - 1, neck[1] - 1, 3, 2, look.skinShade);
 }
 
-interface DirtState {
+export interface DirtState {
   front: boolean;
   back: boolean;
 }
 
-function renderPose(pose: Pose, look: CharacterLook, dirt: DirtState): PixelCanvas {
+export function renderPose(pose: Pose, look: CharacterLook, dirt: DirtState = { front: false, back: false }): PixelCanvas {
   const pc = new PixelCanvas(PLAYER_FRAME.width, PLAYER_FRAME.height);
   const sick = pose.head === 'disgust';
   const skin = sick ? look.skinSick : look.skin;
   const skinBack = sick ? look.skinSickShade : look.skinShade;
 
+  const shorts = look.legs === 'shorts';
   drawArm(pc, pose.backArm, look.shirtShade, skinBack);
-  drawLeg(pc, pose.backLeg, look.pantsBack);
+  drawLeg(pc, pose.backLeg, look.pantsBack, shorts ? look.skinShade : look.pantsBack);
   drawShoe(pc, pose.backLeg.c, pose.backFoot, look, true, dirt.back);
   drawTorso(pc, pose.neck, pose.hip, look);
-  drawLeg(pc, pose.frontLeg, look.pants);
+  drawLeg(pc, pose.frontLeg, look.pants, shorts ? look.skin : look.pants);
   // Al mirar la suela, el pie levantado siempre se ve con el "regalito".
   drawShoe(pc, pose.frontLeg.c, pose.frontFoot, look, false, dirt.front || pose.frontFoot === 'sole');
 
@@ -303,10 +343,10 @@ function renderPose(pose: Pose, look: CharacterLook, dirt: DirtState): PixelCanv
 // Poses (cuadro de 48x48, piso en y = 46, centro en x = 24)
 // ---------------------------------------------------------------------------
 
-const P = (x: number, y: number): Pt => [x, y];
-const L = (a: Pt, b: Pt, c: Pt): Limb => ({ a, b, c });
+export const P = (x: number, y: number): Pt => [x, y];
+export const L = (a: Pt, b: Pt, c: Pt): Limb => ({ a, b, c });
 
-const IDLE: Pose = {
+export const IDLE: Pose = {
   hip: P(24, 32),
   neck: P(24, 21),
   head: 'normal',

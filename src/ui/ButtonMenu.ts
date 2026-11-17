@@ -95,5 +95,6 @@ export class ButtonMenu {
 
   destroy(): void {
     this.keyboard?.off('keydown', this.onKey, this);
+    this.cursor.destroy();
   }
 }

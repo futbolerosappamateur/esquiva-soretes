@@ -1,4 +1,4 @@
-import { CORNER_SPECS, FACADE_SPECS } from '../graphics/textures/facadeTextures';
+import { CORNER_SPECS, FACADE_SPECS } from '../graphics/facadeSpecs';
 
 /**
  * Un barrio define la estética de sus cuadras. Para sumar un barrio nuevo
@@ -34,6 +34,22 @@ export const THEMES: Record<string, NeighborhoodTheme> = {
       { variant: 0, weight: 3 },
       { variant: 1, weight: 3 },
       { variant: 2, weight: 2 },
+    ],
+    carVariants: 8,
+    skyColor: 0x8fd0f2,
+  },
+  // Provisional: reutiliza las fachadas de San Telmo con otra mezcla de árboles.
+  monserrat: {
+    id: 'monserrat',
+    name: 'MONSERRAT',
+    facadeIds: FACADE_SPECS.filter((s) => s.floors >= 1).map((s) => s.id),
+    facadeWidths: widths,
+    cornerStartId: 'esquina-inicio',
+    cornerEndId: 'esquina-final',
+    trees: [
+      { variant: 0, weight: 4 },
+      { variant: 1, weight: 4 },
+      { variant: 2, weight: 1 },
     ],
     carVariants: 8,
     skyColor: 0x8fd0f2,

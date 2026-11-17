@@ -47,6 +47,54 @@ export const TEX = {
   ui: 'ui',
   logo: 'logo',
   mascot: 'mascot',
+
+  // --- v0.2 ---------------------------------------------------------------
+  /** Calzada transversal de los cruces (con senda peatonal). */
+  crossingRoad: 'crossing-road',
+  signals: 'signals',
+  hudSignal: 'hud-signal',
+  glow: 'fx-glow',
+  /** Íconos de interfaz (monedas, estrellas, candados, etc.). */
+  icons: 'icons',
+  coin: 'coin',
+  litter: 'litter',
+  /** Variantes de ambientación. */
+  skyNight: 'sky-night',
+  skyDusk: 'sky-dusk',
+  skyOvercast: 'sky-overcast',
+  skylineNight: 'skyline-night',
+  treeAutumn: (n: number) => `tree-autumn-${n}`,
+  treeBare: (n: number) => `tree-bare-${n}`,
+  facadeNight: (id: string) => `facade-night-${id}`,
+  lampLit: 'lamp-lit',
+  /** NPC con comportamientos (portero, señora regando...). */
+  npc: (id: string) => `npc-${id}`,
+  /** Vista previa de cada personaje para la pantalla de selección. */
+  characterPreview: (id: string) => `character-preview-${id}`,
+  mapBase: 'world-map',
+  mapToken: 'map-token',
+} as const;
+
+/** Frames de la hoja de íconos de interfaz. */
+export const ICON_FRAMES = {
+  coin: 'coin',
+  star: 'star',
+  starEmpty: 'star-empty',
+  starSmall: 'star-small',
+  starSmallEmpty: 'star-small-empty',
+  lock: 'lock',
+  check: 'check',
+  badge: 'badge',
+  trash: 'trash',
+  arrowDown: 'arrow-down',
+  sneakerFlat: 'sneaker-flat',
+  sun: 'sun',
+  moon: 'moon',
+  leaf: 'leaf',
+  plus: 'plus',
+  minus: 'minus',
+  back: 'back',
+  flag: 'flag',
 } as const;
 
 /** Nombres de frames dentro de la hoja de soretes. */
@@ -96,3 +144,10 @@ export const PROP_FRAMES = {
   rootTiles: 'root-tiles',
   bags: 'bags',
 } as const;
+
+/** Calcomanías decorativas del piso. */
+export const DECAL_FRAMES = ['crack1', 'crack2', 'stain1', 'stain2', 'gum', 'cover', 'patch', 'paper', 'butt'] as const;
+
+/** Razas de los perros del paseador. */
+export type DogKind = 'small' | 'medium' | 'big' | 'sausage';
+export const DOG_KINDS: DogKind[] = ['small', 'medium', 'big', 'sausage'];

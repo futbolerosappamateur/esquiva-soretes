@@ -16,7 +16,7 @@ export class Npc {
   private readonly dogs: Phaser.GameObjects.Sprite[] = [];
   private readonly leash?: Phaser.GameObjects.Graphics;
   private x: number;
-  private readonly dir: 1 | -1;
+  private dir: 1 | -1;
   private readonly speed: number;
   private visible = true;
 
@@ -48,10 +48,11 @@ export class Npc {
     }
   }
 
-  update(dt: number, worldWidth: number): void {
+  /** Camina por su cuadra y da la vuelta en las esquinas (nunca cruza la calle). */
+  update(dt: number): void {
     this.x += this.dir * this.speed * dt;
-    if (this.x < -80) this.x = worldWidth + 60;
-    if (this.x > worldWidth + 80) this.x = -60;
+    if (this.x < this.placement.minX && this.dir < 0) this.turn(1);
+    else if (this.x > this.placement.maxX && this.dir > 0) this.turn(-1);
     const rx = Math.round(this.x);
     this.sprite.x = rx;
     if (this.dogs.length > 0 && this.leash) {
@@ -66,6 +67,17 @@ export class Npc {
         this.leash!.lineBetween(handX, handY, dog.x + 3 * this.dir, dog.y - dog.height + 3);
       });
     }
+  }
+
+  private turn(dir: 1 | -1): void {
+    this.dir = dir;
+    this.sprite.setFlipX(dir < 0);
+    this.dogs.forEach((d) => d.setFlipX(dir < 0));
+  }
+
+  setTint(tint: number): void {
+    this.sprite.setTint(tint);
+    this.dogs.forEach((d) => d.setTint(tint));
   }
 
   get posX(): number {

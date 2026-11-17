@@ -64,4 +64,8 @@ export class Pigeon {
     if (this.alive) this.sprite.destroy();
     this.alive = false;
   }
+
+  setTint(tint: number): void {
+    this.sprite.setTint(tint);
+  }
 }

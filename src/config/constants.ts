@@ -16,7 +16,12 @@ export const SCENES = {
   HUD: 'Hud',
   PAUSE: 'Pause',
   GAME_OVER: 'GameOver',
-  VICTORY: 'Victory',
+  LEVEL_COMPLETE: 'LevelComplete',
+  WORLD_MAP: 'WorldMap',
+  BARRIO: 'Barrio',
+  CHARACTER: 'CharacterSelect',
+  BARRIO_COMPLETE: 'BarrioComplete',
+  RECORDS: 'Records',
 } as const;
 
 /**

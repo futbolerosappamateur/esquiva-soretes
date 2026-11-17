@@ -1,0 +1,110 @@
+import { DEFAULT_LOOK, type CharacterLook } from './textures/playerTextures';
+
+/**
+ * Apariencias provisionales de los personajes (colores + silueta). Cuando
+ * lleguen las ilustraciones definitivas, cada look se reemplaza por su hoja
+ * de sprites sin tocar el controlador del jugador.
+ */
+const base = DEFAULT_LOOK;
+
+export const CHARACTER_LOOKS: Record<string, CharacterLook> = {
+  pibe: DEFAULT_LOOK,
+  piba: {
+    ...base,
+    id: 'piba',
+    skin: '#f6c9a8',
+    skinShade: '#d9a07c',
+    hair: '#9a4424',
+    hairLight: '#c0623a',
+    hairDark: '#6a2a14',
+    hairStyle: 'ponytail',
+    accent: '#ff6fa8',
+    shirtA: '#9b6ad6',
+    shirtB: '#e7d8ff',
+    shirtShade: '#6e45a8',
+    torso: 'zip',
+    pants: '#3a3360',
+    pantsBack: '#28234a',
+    shoeAccent: '#ff6fa8',
+  },
+  runner: {
+    ...base,
+    id: 'runner',
+    skin: '#c98d62',
+    skinShade: '#a46c45',
+    hair: '#24180f',
+    hairLight: '#3d2a1c',
+    hairDark: '#150d08',
+    hairStyle: 'headband',
+    accent: '#ff8a1f',
+    shirtA: '#2ec4b6',
+    shirtB: '#bff5ee',
+    shirtShade: '#1b8f85',
+    torso: 'solid',
+    pants: '#1f3b73',
+    pantsBack: '#162a52',
+    legs: 'shorts',
+    shoeAccent: '#ff8a1f',
+  },
+  neighbor: {
+    ...base,
+    id: 'neighbor',
+    skin: '#e8b08a',
+    skinShade: '#c98b66',
+    hair: '#cfcac4',
+    hairLight: '#ece8e2',
+    hairDark: '#8f8a84',
+    hairStyle: 'bald',
+    mustache: true,
+    shirtA: '#8a5a3a',
+    shirtB: '#d9b88f',
+    shirtShade: '#5e3b24',
+    torso: 'zip',
+    pants: '#5a5a66',
+    pantsBack: '#43434d',
+    shoeAccent: '#5a5a66',
+  },
+  portero: {
+    ...base,
+    id: 'portero',
+    skin: '#d9a27a',
+    skinShade: '#b47f5a',
+    hair: '#2a2420',
+    hairLight: '#3d352f',
+    hairDark: '#17120f',
+    hairStyle: 'cap',
+    accent: '#2a3a5a',
+    mustache: true,
+    shirtA: '#8fa6b8',
+    shirtB: '#e8eef2',
+    shirtShade: '#647e92',
+    torso: 'zip',
+    pants: '#2c3a52',
+    pantsBack: '#1f2a3d',
+    shoeAccent: '#2c3a52',
+  },
+  // Variante de vestuario del portero NPC cuando el jugador elige a Roberto.
+  'portero-alt': {
+    ...base,
+    id: 'portero-alt',
+    skin: '#e3b28c',
+    skinShade: '#bf8c66',
+    hair: '#5a4632',
+    hairLight: '#7a6046',
+    hairDark: '#3a2c1f',
+    hairStyle: 'cap',
+    accent: '#7a5232',
+    mustache: false,
+    shirtA: '#c9b48a',
+    shirtB: '#f2e8d2',
+    shirtShade: '#a08a62',
+    torso: 'zip',
+    pants: '#5a4a3a',
+    pantsBack: '#43372b',
+    shoeAccent: '#5a4a3a',
+  },
+};
+
+export function getLook(id: string): CharacterLook {
+  return CHARACTER_LOOKS[id] ?? DEFAULT_LOOK;
+}

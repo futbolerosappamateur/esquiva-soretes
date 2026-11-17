@@ -5,6 +5,9 @@ import { PAL } from '../../config/palette';
 import { RNG } from '../../core/rng';
 import { mix, shade } from '../color';
 import { measureText } from '../fontData';
+import { CAR_STYLES, type CarStyle } from '../carStyles';
+
+export { CAR_STYLES };
 
 /** Medidas de los árboles: la base del tronco está en el borde inferior del lienzo. */
 export const TREE_SIZE = { w: 72, h: 140 };
@@ -208,13 +211,6 @@ function drawNewsKiosk(): PixelCanvas {
   return pc;
 }
 
-interface CarStyle {
-  body: string;
-  top?: string;
-  small?: boolean;
-  taxi?: boolean;
-}
-
 function drawCar(style: CarStyle): PixelCanvas {
   const W = style.small ? 56 : 78;
   const pc = new PixelCanvas(W, 32);
@@ -339,16 +335,7 @@ export function ensureCornerSign(textures: Phaser.Textures.TextureManager, stree
   return key;
 }
 
-export const CAR_STYLES: CarStyle[] = [
-  { body: '#c62b22' },
-  { body: '#2f5a8a' },
-  { body: '#e8e8e4' },
-  { body: '#1f1a24', top: '#f2c23c', taxi: true },
-  { body: '#7fb8d9', small: true },
-  { body: '#d8c49a' },
-  { body: '#e8833a', small: true },
-  { body: '#3f7a4a' },
-];
+
 
 export function generatePropTextures(textures: Phaser.Textures.TextureManager): void {
   drawTree(31, PLATANO).addTo(textures, TEX.tree(0));

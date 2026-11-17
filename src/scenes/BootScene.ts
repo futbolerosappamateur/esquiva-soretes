@@ -1,14 +1,19 @@
 import Phaser from 'phaser';
+import { applyManifest, queueManifest } from '../assets/AssetLoader';
 import { GAME_HEIGHT, GAME_WIDTH, SCENES } from '../config/constants';
 import { UI_COLORS } from '../config/palette';
+import { createRun } from '../core/RunState';
+import { BARRIOS } from '../data/campaign';
+import { debugFlags } from '../debug/DebugOverlay';
 import { createAnimations } from '../graphics/animations';
 import { registerFonts } from '../graphics/BitmapFontBuilder';
 import { TEXTURE_STEPS } from '../graphics/textures';
 import { addText } from '../ui/text';
 
 /**
- * Carga inicial: genera la fuente pixelada, todas las texturas provisionales
- * y las animaciones. Lo hace por pasos para poder mostrar el progreso.
+ * Carga inicial: gráficos definitivos declarados en el manifiesto (si los
+ * hay), fuente pixelada, texturas provisionales y animaciones. Lo hace por
+ * pasos para poder mostrar el progreso.
  */
 export class BootScene extends Phaser.Scene {
   private step = 0;
@@ -17,6 +22,12 @@ export class BootScene extends Phaser.Scene {
 
   constructor() {
     super(SCENES.BOOT);
+  }
+
+  preload(): void {
+    queueManifest(this.load);
+    // Un archivo faltante no rompe nada: queda el gráfico provisional.
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => console.warn(`No se pudo cargar ${file.key}`));
   }
 
   create(): void {
@@ -53,6 +64,18 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     createAnimations(this.anims);
+    // Los definitivos reemplazan a los provisionales (y pueden redefinir animaciones).
+    applyManifest(this.textures, this.anims);
+    // ?level=san-telmo-2 abre directamente ese nivel (para probar).
+    if (debugFlags.level) {
+      for (const barrio of BARRIOS) {
+        const levelIndex = barrio.levels.findIndex((l) => l.id === debugFlags.level);
+        if (levelIndex >= 0) {
+          this.scene.start(SCENES.GAME, { run: createRun({ barrioId: barrio.id, levelIndex }) });
+          return;
+        }
+      }
+    }
     this.scene.start(SCENES.MENU);
   }
 }

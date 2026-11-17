@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { packStrip, PixelCanvas } from '../PixelCanvas';
-import { TEX } from '../keys';
+import { DOG_KINDS, TEX, type DogKind } from '../keys';
 import { PAL } from '../../config/palette';
 import { shade } from '../color';
 
@@ -123,7 +123,7 @@ function ladyFrames(): { name: string; canvas: PixelCanvas }[] {
   });
 }
 
-type DogKind = 'small' | 'medium' | 'big' | 'sausage';
+
 
 function drawDog(kind: DogKind, frame: number): PixelCanvas {
   const spec = {
@@ -157,7 +157,7 @@ function drawDog(kind: DogKind, frame: number): PixelCanvas {
   return pc;
 }
 
-export const DOG_KINDS: DogKind[] = ['small', 'medium', 'big', 'sausage'];
+export { DOG_KINDS };
 
 export function generateNpcTextures(textures: Phaser.Textures.TextureManager): void {
   packStrip(

@@ -6,17 +6,36 @@ import { PROP_DEFS } from '../world/LevelLayout';
 
 /**
  * Herramientas de desarrollo, activables desde la URL:
- *   ?debug        muestra huellas de colisión y datos (F2 lo oculta/muestra)
- *   ?seed=1234    fija la semilla para repetir exactamente la misma cuadra
- *   ?block=3      empieza directamente en la cuadra 3
+ *   ?debug              muestra huellas de colisión y datos (F2 lo oculta/muestra)
+ *   ?seed=1234          fija la semilla del nivel
+ *   ?level=san-telmo-2  arranca directo en ese nivel (sin pasar por el mapa)
+ *   ?block=3            empieza en la esquina anterior a la cuadra 3
+ *   ?env=night          fuerza una ambientación (day, night, autumn, rain...)
+ *   ?unlockall          desbloquea todos los barrios con niveles (sólo para probar)
  */
-function readFlags(): { enabled: boolean; seed: number | null; block: number | null } {
-  const params = new URLSearchParams(window.location.search);
+export interface DebugFlags {
+  enabled: boolean;
+  seed: number | null;
+  block: number | null;
+  level: string | null;
+  env: string | null;
+  unlockAll: boolean;
+}
+
+function readFlags(): DebugFlags {
+  const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const seed = params.get('seed');
   const block = params.get('block');
   const parsedSeed = seed !== null && seed !== '' && Number.isFinite(Number(seed)) ? Number(seed) >>> 0 : null;
   const parsedBlock = block !== null && Number.isFinite(Number(block)) ? Math.max(0, Math.floor(Number(block)) - 1) : null;
-  return { enabled: params.has('debug'), seed: parsedSeed, block: parsedBlock };
+  return {
+    enabled: params.has('debug'),
+    seed: parsedSeed,
+    block: parsedBlock,
+    level: params.get('level'),
+    env: params.get('env'),
+    unlockAll: params.has('unlockall'),
+  };
 }
 
 export const debugFlags = readFlags();
@@ -60,12 +79,24 @@ export class DebugOverlay {
       if (fp.shape === 'ellipse') g.strokeEllipse(o.x, o.y, fp.w, fp.h);
       else g.strokeRect(o.x - fp.w / 2, o.y - fp.h / 2, fp.w, fp.h);
     }
+    for (const c of s.crossings.controllers) {
+      if (c.geo.x1 < left || c.geo.x0 > right) continue;
+      for (const v of c.traffic.vehicles) {
+        const r = c.traffic.bodyRect(v);
+        g.lineStyle(1, 0xff8a1f, 1).strokeRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+      }
+    }
     const pf = p.footprint;
     g.lineStyle(1, p.canBeHit ? 0x33ff66 : 0xffffff, 1).strokeRect(p.x - pf.w / 2, p.y - pf.h / 2, pf.w, pf.h);
     if (p.z > 0) g.lineStyle(1, 0x33ff66, 0.5).lineBetween(p.x, p.y, p.x, p.y - p.z);
 
     const fps = Math.round(s.game.loop.actualFps);
-    this.info.setText(`X ${Math.round(p.x)}  Y ${Math.round(p.y)}  Z ${Math.round(p.z)}\nVIDAS ${s.run.lives}  FPS ${fps}  OBST ${s.obstacles.list.length}`);
+    // Teclas que informa el navegador: si al apretar Espacio no aparece, es ghosting del teclado.
+    const keys = s.inputKeys().join(' ') || '-';
+    this.info.setText(
+      `X ${Math.round(p.x)}  Y ${Math.round(p.y)}  Z ${Math.round(p.z)}  CUADRA ${s.currentBlockNumber}\n` +
+        `VIDAS ${s.run.lives}  FPS ${fps}  OBST ${s.obstacles.list.length}\nTECLAS ${keys.toUpperCase()}`,
+    );
   }
 
   destroy(): void {

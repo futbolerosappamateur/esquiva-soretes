@@ -78,3 +78,78 @@ export const EFFECTS_TUNING = {
   /** Tiempo mínimo entre frases graciosas para no saturar la pantalla. */
   phraseCooldown: 1.8,
 };
+
+/**
+ * Estructura y duración de los niveles. El largo de cada cuadra se calcula
+ * para que un nivel dure `targetLevelSeconds` en una partida normal.
+ */
+export const CAMPAIGN_TUNING = {
+  blocksPerLevel: 5,
+  levelsPerBarrio: 3,
+  /** Duración buscada de un nivel (segundos): entre 3 y 5 minutos. */
+  targetLevelSeconds: 240,
+  /** Velocidad media estimada del jugador (px/s), mezclando caminar, correr y esquivar. */
+  estimatedSpeed: 90,
+  /** Tiempo medio estimado en cada cruce (espera del semáforo + cruzar). */
+  estimatedCrossingSeconds: 9,
+  minBlockLength: 2400,
+  maxBlockLength: 5600,
+};
+
+/** Calcula el largo (px) de cada cuadra de un nivel. */
+export function blockLengthFor(durationScale = 1): number {
+  const t = CAMPAIGN_TUNING;
+  const crossings = t.blocksPerLevel - 1;
+  const seconds = (t.targetLevelSeconds - crossings * t.estimatedCrossingSeconds) / t.blocksPerLevel;
+  const length = seconds * t.estimatedSpeed * durationScale;
+  return Math.round(Math.min(t.maxBlockLength, Math.max(t.minBlockLength, length)) / 16) * 16;
+}
+
+/** Cruces peatonales: geometría de la calle, semáforos, tránsito y premios. */
+export const CROSSING_TUNING = {
+  /** Ancho total de la esquina (ochavas + calzada) y de la calzada. */
+  width: 140,
+  roadInset: 18,
+  /** Separación entre el final de la vereda y el cordón de la esquina. */
+  cornerGap: 26,
+  lanes: 2,
+  /** Ciclo del semáforo (segundos). Corto, para mantener el ritmo arcade. */
+  timing: { vehGreen: 4.2, vehYellow: 1.3, allRed1: 1.1, pedGreen: 5.2, pedFlash: 2.2, allRed2: 0.8 },
+  /** Los autos frenan antes de la senda con este margen (px). */
+  stopMargin: 7,
+  /** Aceleración y frenado de los vehículos (px/s²). */
+  accel: 160,
+  decel: 420,
+  /** Distancia mínima entre vehículos detenidos y tiempo de reacción del que viene atrás. */
+  minGap: 7,
+  headway: 0.45,
+  /** Intervalo entre vehículos que entran por carril (segundos). */
+  spawnInterval: [1.2, 2.8] as [number, number],
+  maxPerLane: 7,
+  /** El jugador empieza a "ver" el cruce (y la cámara lo encuadra) desde esta distancia. */
+  approachDistance: 280,
+  /** Distancia (px) a la que un auto toca bocina si el jugador está en su carril. */
+  honkDistance: 70,
+  greenBonus: 250,
+  /** Bonus adicional por cruzar sin que te toque ningún auto. */
+  cleanBonus: 150,
+};
+
+/** Estrellas de cada nivel según el puntaje (fracciones de un puntaje de referencia). */
+export const STAR_RULES = {
+  /** Completar el nivel siempre da al menos una estrella. */
+  twoStarsFraction: 0.5,
+  threeStarsFraction: 0.8,
+  /** Multiplicador de combo "típico" para estimar el puntaje de referencia. */
+  referenceMultiplier: 2.2,
+};
+
+/** Monedas: moneda persistente para desbloquear personajes y cosméticos. */
+export const COIN_TUNING = {
+  /** Monedas sueltas en la vereda por cuadra (aprox.). */
+  coinsPerBlock: 9,
+  /** Puntos que suma recoger una moneda (además de la moneda en sí). */
+  pickupPoints: 20,
+  /** Monedas por estrella nueva conseguida en un nivel (sólo la primera vez). */
+  newStarCoins: 10,
+};

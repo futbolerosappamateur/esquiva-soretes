@@ -1,16 +1,22 @@
 import Phaser from 'phaser';
 import { audio } from './audio/AudioManager';
 import { GAME_HEIGHT, GAME_WIDTH } from './config/constants';
+import { saveStore } from './core/save';
 import { debugFlags } from './debug/DebugOverlay';
+import { BarrioCompleteScene } from './scenes/BarrioCompleteScene';
+import { BarrioScene } from './scenes/BarrioScene';
 import { BootScene } from './scenes/BootScene';
+import { CharacterSelectScene } from './scenes/CharacterSelectScene';
 import { GameOverScene } from './scenes/GameOverScene';
 import { GameScene } from './scenes/GameScene';
 import { HowToPlayScene } from './scenes/HowToPlayScene';
 import { HudScene } from './scenes/HudScene';
+import { LevelCompleteScene } from './scenes/LevelCompleteScene';
 import { MenuScene } from './scenes/MenuScene';
 import { OptionsScene } from './scenes/OptionsScene';
 import { PauseScene } from './scenes/PauseScene';
-import { VictoryScene } from './scenes/VictoryScene';
+import { RecordsScene } from './scenes/RecordsScene';
+import { WorldMapScene } from './scenes/WorldMapScene';
 
 audio.init();
 
@@ -34,10 +40,25 @@ const game = new Phaser.Game({
   render: { powerPreference: 'high-performance' },
   banner: false,
   // El orden define qué escena se dibuja encima de cuál.
-  scene: [BootScene, MenuScene, HowToPlayScene, OptionsScene, GameScene, HudScene, PauseScene, GameOverScene, VictoryScene],
+  scene: [
+    BootScene,
+    MenuScene,
+    WorldMapScene,
+    BarrioScene,
+    CharacterSelectScene,
+    BarrioCompleteScene,
+    HowToPlayScene,
+    OptionsScene,
+    RecordsScene,
+    GameScene,
+    HudScene,
+    PauseScene,
+    GameOverScene,
+    LevelCompleteScene,
+  ],
 });
 
 // Acceso para pruebas automatizadas y depuración (sólo en desarrollo o con ?debug).
 if (import.meta.env.DEV || debugFlags.enabled) {
-  (window as unknown as { __ESQUIVA__: { game: Phaser.Game } }).__ESQUIVA__ = { game };
+  (window as unknown as { __ESQUIVA__: { game: Phaser.Game; saveStore: typeof saveStore } }).__ESQUIVA__ = { game, saveStore };
 }

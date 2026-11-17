@@ -22,6 +22,8 @@ export interface PatternContext {
   inner: number;
   /** Versión "de presentación": el obstáculo protagonista aparece solo y seguro. */
   intro?: boolean;
+  /** Multiplica la probabilidad de que un montón de hojas esconda un sorete (otoño). */
+  camoChance?: number;
 }
 
 export interface PatternResult {
@@ -137,7 +139,7 @@ export const PATTERNS: Pattern[] = [
         const x = Math.round(xAt(c, piles === 1 ? 0.5 : i === 0 ? 0.2 : 0.8));
         const y = Math.round(yAt(c, c.rng.range(0.15, 0.85)));
         decals.push({ texture: TEX.leafPile, frame: c.rng.chance(0.5) ? 'pile0' : 'pile1', x, y });
-        const hasPoop = c.intro ? i === 1 : c.rng.chance(lerp(0.5, 0.85, c.d));
+        const hasPoop = c.intro ? i === 1 : c.rng.chance(Math.min(0.95, lerp(0.5, 0.85, c.d) * (c.camoChance ?? 1)));
         if (hasPoop) {
           obstacles.push({ type: 'camo', x: x + c.rng.int(-8, 8), y: y + c.rng.int(-2, 2), variant: 0 });
         }
@@ -241,7 +243,14 @@ export const PATTERNS: Pattern[] = [
   },
 ];
 
-export function choosePattern(d: number, rng: RNG, previous: string | null): Pattern {
-  const options = PATTERNS.filter((p) => d >= p.minD && (p.id !== previous || p.id === 'scatter')).map((p) => ({ item: p, weight: p.weight(d) }));
+/**
+ * Elige un patrón según la dificultad. `weights` permite que una ambientación
+ * favorezca algunos patrones (por ejemplo, más montones de hojas en otoño).
+ */
+export function choosePattern(d: number, rng: RNG, previous: string | null, weights?: Record<string, number>): Pattern {
+  const options = PATTERNS.filter((p) => d >= p.minD && (p.id !== previous || p.id === 'scatter')).map((p) => ({
+    item: p,
+    weight: p.weight(d) * (weights?.[p.id] ?? 1),
+  }));
   return rng.weighted(options);
 }

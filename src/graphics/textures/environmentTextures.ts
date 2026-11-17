@@ -329,7 +329,7 @@ function drawDecals(textures: Phaser.Textures.TextureManager): void {
   ]);
 }
 
-export const DECAL_FRAMES = ['crack1', 'crack2', 'stain1', 'stain2', 'gum', 'cover', 'patch', 'paper', 'butt'] as const;
+export { DECAL_FRAMES } from '../keys';
 
 export function generateEnvironmentTextures(textures: Phaser.Textures.TextureManager): void {
   drawSky(textures);

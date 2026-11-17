@@ -32,3 +32,18 @@ export function shade(hex: string, amount: number): string {
 export function shadow(hex: string, amount = 0.25): string {
   return mix(hex, '#2a1838', amount);
 }
+
+/**
+ * Multiplica dos colores 0xRRGGBB (como un tinte de Phaser). Con `strength`
+ * menor que 1 se aplica sólo una parte del oscurecimiento.
+ */
+export function multiplyColor(a: number, b: number, strength = 1): number {
+  const ch = (c: number, shift: number) => (c >> shift) & 0xff;
+  let out = 0;
+  for (const shift of [16, 8, 0]) {
+    const product = (ch(a, shift) * ch(b, shift)) / 255;
+    const v = Math.round(255 + (product - 255) * strength);
+    out |= Math.max(0, Math.min(255, v)) << shift;
+  }
+  return out >>> 0;
+}

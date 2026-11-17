@@ -2,10 +2,11 @@ import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { DEPTH, GAME_HEIGHT, GAME_WIDTH, SCENES } from '../config/constants';
 import { UI_COLORS } from '../config/palette';
-import { TEXTS } from '../config/texts';
+import { TEXTS, TEXTS2 } from '../config/texts';
 import { formatThousands } from '../core/math';
 import { records } from '../core/records';
-import { createRun } from '../core/RunState';
+import { saveStore } from '../core/save';
+import { applyPlayerCharacter } from '../graphics/characterTextures';
 import { ObstacleManager } from '../entities/obstacles/ObstacleManager';
 import { ANIM } from '../graphics/animations';
 import { FX_FRAMES, TEX, UI_FRAMES } from '../graphics/keys';
@@ -15,8 +16,7 @@ import { EffectsSystem } from '../systems/EffectsSystem';
 import { Button } from '../ui/Button';
 import { ButtonMenu } from '../ui/ButtonMenu';
 import { addText } from '../ui/text';
-import type { BlockDefinition } from '../world/blocks';
-import { generateLevel } from '../world/LevelGenerator';
+import { generateMenuLayout } from '../world/LevelGenerator';
 import type { LevelLayout } from '../world/LevelLayout';
 import { THEMES } from '../world/themes';
 import { WorldView } from '../world/WorldView';
@@ -44,22 +44,14 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     this.scroll = 0;
     const theme = THEMES['san-telmo'];
-    const block: BlockDefinition = {
-      theme: theme.id,
-      number: 0,
-      street: 'DEFENSA',
-      fromStreet: '',
-      toStreet: '',
-      length: 20000,
-      difficulty: [0.1, 0.3],
-    };
-    this.layout = generateLevel(block, theme, 20241116);
+    this.layout = generateMenuLayout(theme, 20241116);
+    applyPlayerCharacter(this, saveStore.get().selectedCharacter);
     // Carril libre para el paseante del menú.
     this.layout.obstacles = this.layout.obstacles.filter((o) => o.y < WALKER_Y - 16);
     this.cameras.main.setBounds(0, 0, this.layout.worldWidth, GAME_HEIGHT);
     this.cameras.main.setBackgroundColor(theme.skyColor);
 
-    this.world = new WorldView(this, this.layout, null);
+    this.world = new WorldView(this, this.layout);
     this.effects = new EffectsSystem(this);
     this.obstacles = new ObstacleManager(this, this.layout.obstacles, this.effects);
     this.world.onPigeonScared = () => audio.play('flap');
@@ -93,13 +85,14 @@ export class MenuScene extends Phaser.Scene {
 
     const make = (y: number, label: string, onClick: () => void) =>
       new Button(this, cx, y, label, { width: 128, height: 19, onClick, depth: UI_DEPTH });
-    const play = make(131, TEXTS.menu.play, () => this.startGame());
-    const howTo = make(154, TEXTS.menu.howTo, () => this.openOverlay(SCENES.HOW_TO));
-    const options = make(177, TEXTS.menu.options, () => this.openOverlay(SCENES.OPTIONS));
-    this.menu = new ButtonMenu(this, [{ button: play }, { button: howTo }, { button: options }], { depth: UI_DEPTH });
+    const play = make(124, TEXTS.menu.play, () => this.startGame());
+    const howTo = make(145, TEXTS.menu.howTo, () => this.openOverlay(SCENES.HOW_TO));
+    const options = make(166, TEXTS.menu.options, () => this.openOverlay(SCENES.OPTIONS));
+    const recordsBtn = make(187, TEXTS2.menu.records, () => this.openOverlay(SCENES.RECORDS));
+    this.menu = new ButtonMenu(this, [{ button: play }, { button: howTo }, { button: options }, { button: recordsBtn }], { depth: UI_DEPTH });
 
     const best = records.get().bestScore;
-    addText(this, cx, 204, best > 0 ? `${TEXTS.menu.record}: ${formatThousands(best)}` : TEXTS.menu.noRecord, {
+    addText(this, cx, 207, best > 0 ? `${TEXTS.menu.record}: ${formatThousands(best)}` : TEXTS.menu.noRecord, {
       color: UI_COLORS.yellow,
       origin: [0.5, 0],
       scrollFactor: 0,
@@ -113,7 +106,7 @@ export class MenuScene extends Phaser.Scene {
       scrollFactor: 0,
       depth: UI_DEPTH,
     });
-    addText(this, GAME_WIDTH - 4, GAME_HEIGHT - 4, 'V0.1', { outline: false, color: UI_COLORS.gray, origin: [1, 1], scrollFactor: 0, depth: UI_DEPTH });
+    addText(this, GAME_WIDTH - 4, GAME_HEIGHT - 4, TEXTS2.menu.version, { outline: false, color: UI_COLORS.gray, origin: [1, 1], scrollFactor: 0, depth: UI_DEPTH });
 
     if (touch && this.scale.fullscreen.available) {
       const fs = this.add
@@ -130,7 +123,7 @@ export class MenuScene extends Phaser.Scene {
     audio.play('start');
     this.cameras.main.fadeOut(260, 18, 12, 24);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start(SCENES.GAME, { run: createRun() });
+      this.scene.start(SCENES.WORLD_MAP);
     });
   }
 

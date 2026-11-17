@@ -1,8 +1,9 @@
+import type { StreetBlock } from '../data/campaign';
 import type { ObstacleTypeId } from '../entities/obstacles/ObstacleTypes';
 import type { Footprint } from '../systems/Collision';
 import { PROP_FRAMES, TEX } from '../graphics/keys';
 
-/** Resultado del generador: todo lo que hay en una cuadra, sin gráficos. */
+/** Resultado del generador: todo lo que hay en un nivel, sin gráficos. */
 export interface ObstaclePlacement {
   type: ObstacleTypeId;
   x: number;
@@ -55,14 +56,63 @@ export interface NpcPlacement {
   x: number;
   dir: 1 | -1;
   dogs: number[];
+  /** Tramo de vereda por el que camina (da la vuelta en las esquinas). */
+  minX: number;
+  maxX: number;
+}
+
+/** Una cuadra del nivel. */
+export interface BlockSegment {
+  index: number;
+  /** Comienzo de la vereda. */
+  startX: number;
+  /** Esquina de llegada: al pasarla se completa la cuadra. */
+  endX: number;
+  street: StreetBlock;
+  difficulty: [number, number];
+}
+
+/** Una esquina con cruce peatonal entre dos cuadras. */
+export interface CrossingSegment {
+  /** Índice de la cuadra que termina en esta esquina. */
+  index: number;
+  x0: number;
+  x1: number;
+  roadX0: number;
+  roadX1: number;
+  laneXs: number[];
+  /** +1: los autos bajan hacia la cámara · -1: suben hacia el fondo. */
+  dir: 1 | -1;
+  /** Calle transversal (cartel de la esquina). */
+  street: string;
+  seed: number;
+  density: number;
+}
+
+export interface CoinPlacement {
+  x: number;
+  y: number;
+}
+
+/** Elementos de la misión "juntá la basura y llevala al tacho". */
+export interface MissionPlacement {
+  id: string;
+  blockIndex: number;
+  /** Personaje que da la misión (el portero barriendo la vereda). */
+  giver: { npc: string; x: number; y: number };
+  items: { x: number; y: number; frame: string }[];
+  /** Tacho donde se entrega (es un prop sólido del nivel). */
+  target: { x: number; y: number };
 }
 
 export interface LevelLayout {
-  /** X donde termina la cuadra (al cruzarla se gana). */
+  /** X de la última esquina: al llegar se completa el nivel. */
   length: number;
   worldWidth: number;
   startX: number;
   startY: number;
+  blocks: BlockSegment[];
+  crossings: CrossingSegment[];
   obstacles: ObstaclePlacement[];
   props: PropPlacement[];
   decals: DecalPlacement[];
@@ -70,8 +120,11 @@ export interface LevelLayout {
   cars: CarPlacement[];
   pigeons: PigeonPlacement[];
   npcs: NpcPlacement[];
-  /** Comienzo de la calle transversal (esquina de llegada). */
+  coins: CoinPlacement[];
+  mission: MissionPlacement | null;
+  /** Calle transversal decorativa de la esquina final (sin tránsito). */
   crossStreetX: number;
+  finalStreet: string | null;
   /** Elementos decorativos junto a las fachadas (mesitas de bar, etc.). */
   backDecor: DecalPlacement[];
 }

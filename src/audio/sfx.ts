@@ -18,7 +18,17 @@ export type SfxName =
   | 'select'
   | 'pause'
   | 'flap'
-  | 'start';
+  | 'start'
+  | 'horn'
+  | 'coin'
+  | 'walkSignal'
+  | 'warning'
+  | 'scared'
+  | 'mission'
+  | 'missionDone'
+  | 'unlock'
+  | 'star'
+  | 'checkpoint';
 
 type SfxFn = (s: SynthContext, param: number) => void;
 
@@ -153,5 +163,48 @@ export const SFX: Record<SfxName, SfxFn> = {
   },
   start: (s) => {
     melody(s, [['C5', 0.06], ['E5', 0.06], ['G5', 0.06], ['C6', 0.16]], 'square', 0.08);
+  },
+  // --- v0.2 ---------------------------------------------------------------
+  horn: (s) => {
+    // Bocina de auto porteño: dos notas desafinadas y "nasales".
+    for (const [f, start] of [[392, 0], [370, 0.17]] as const) {
+      tone(s, { type: 'sawtooth', freq: f, start, dur: 0.15, vol: 0.16, hold: true, filter: { type: 'bandpass', freq: 900, q: 1.6 } });
+      tone(s, { type: 'square', freq: f * 1.26, start, dur: 0.15, vol: 0.08, hold: true, filter: { type: 'lowpass', freq: 1800 } });
+    }
+  },
+  coin: (s) => {
+    melody(s, [['B5', 0.05], ['E6', 0.11]], 'square', 0.1);
+  },
+  walkSignal: (s) => {
+    // "Pip pip pip" del semáforo peatonal.
+    for (let i = 0; i < 3; i++) tone(s, { type: 'square', freq: 1760, start: i * 0.13, dur: 0.06, vol: 0.07 });
+  },
+  warning: (s) => {
+    tone(s, { type: 'square', freq: 440, start: 0, dur: 0.1, vol: 0.1 });
+    tone(s, { type: 'square', freq: 330, start: 0.12, dur: 0.16, vol: 0.1 });
+  },
+  scared: (s) => {
+    tone(s, { type: 'triangle', freq: 520, to: 1400, dur: 0.22, vol: 0.16 });
+    tone(s, { type: 'square', freq: 700, to: 1800, dur: 0.18, vol: 0.06, start: 0.04 });
+  },
+  mission: (s) => {
+    melody(s, [['G5', 0.08], ['C6', 0.08], ['E6', 0.14]], 'square', 0.09);
+  },
+  missionDone: (s) => {
+    chord(s, ['C5', 'E5', 'G5'], 0, 0.12, 0.05);
+    chord(s, ['D5', 'F5', 'A5'], 0.13, 0.12, 0.05);
+    chord(s, ['E5', 'G5', 'C6'], 0.26, 0.3, 0.06);
+  },
+  unlock: (s) => {
+    melody(s, [['C5', 0.07], ['E5', 0.07], ['G5', 0.07], ['C6', 0.07], ['E6', 0.22]], 'square', 0.09);
+    noise(s, { dur: 0.4, vol: 0.05, filter: 'highpass', freq: 5000, start: 0.3 });
+  },
+  star: (s, i) => {
+    const notes = ['E5', 'G5', 'C6'];
+    tone(s, { type: 'square', freq: noteToFreq(notes[Math.max(0, Math.min(2, i))]), dur: 0.16, vol: 0.1, filter: { type: 'lowpass', freq: 3500 } });
+    tone(s, { type: 'triangle', freq: noteToFreq(notes[Math.max(0, Math.min(2, i))]) * 2, dur: 0.2, vol: 0.06 });
+  },
+  checkpoint: (s) => {
+    melody(s, [['A5', 0.06], ['D6', 0.06], ['A6', 0.12]], 'triangle', 0.12);
   },
 };

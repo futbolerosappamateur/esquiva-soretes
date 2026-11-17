@@ -74,6 +74,14 @@ export class ObstacleManager {
     }
   }
 
+  /**
+   * Al retomar desde un checkpoint, lo que quedó atrás se da por superado
+   * sin sumar puntos (ya se contaron en la partida anterior).
+   */
+  skipBefore(x: number): void {
+    for (const o of this.list) if (o.right < x) o.state = 'passed';
+  }
+
   /** Oculta lo que está fuera de cámara (mejor rendimiento en celulares). */
   cull(left: number, right: number): void {
     for (const o of this.list) o.setVisible(o.right > left - 48 && o.left < right + 48);

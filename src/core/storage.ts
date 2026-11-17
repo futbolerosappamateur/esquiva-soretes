@@ -15,6 +15,16 @@ export function loadJSON<T extends object>(key: string, fallback: T): T {
   }
 }
 
+/** Devuelve el valor guardado tal cual (sin validar) o null. */
+export function loadRaw(key: string): unknown {
+  try {
+    const raw = window.localStorage.getItem(PREFIX + key);
+    return raw ? (JSON.parse(raw) as unknown) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function saveJSON(key: string, value: unknown): void {
   try {
     window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
