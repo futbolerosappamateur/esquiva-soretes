@@ -484,3 +484,21 @@ describe('Personajes: diferencias moderadas y todos pueden con todo', () => {
     expect(getCharacter('player_police').unlock).toEqual({ kind: 'achievement', counter: 'safeCrossings', target: 25 });
   });
 });
+
+describe('Animaciones por personaje (preparadas para el arte definitivo)', () => {
+  it('cada animación del juego tiene sus cuadros comunes, y cada personaje declara las propias', async () => {
+    const { ANIMATION_FRAMES } = await import('../src/data/characters');
+    const names = Object.keys(ANIMATION_FRAMES).sort();
+    expect(names).toEqual(['celebrate', 'disgust', 'fall', 'gameOver', 'idle', 'jump', 'run', 'special', 'step', 'walk']);
+    for (const frames of Object.values(ANIMATION_FRAMES)) expect(frames.length).toBeGreaterThan(0);
+    // Todos los que se pueden elegir tienen al menos su animación de poder.
+    for (const def of PLAYABLE) expect(def.animations.special, def.id).toBeTruthy();
+    // Las ideas de la consigna quedan anotadas para los sprites definitivos.
+    expect(getCharacter('player_portero').animations.disgust).toContain('SUELA');
+    expect(getCharacter('player_hose').animations.disgust).toContain('AGUA');
+    expect(getCharacter('player_dogwalker').animations.walk).toContain('CORREAS');
+    expect(getCharacter('player_skater').animations.celebrate).toContain('TRUQUITO');
+    expect(getCharacter('player_girl').animations.celebrate).toContain('SALTANDO');
+    expect(getCharacter('player_runner').animations.celebrate).toContain('CARRERA');
+  });
+});

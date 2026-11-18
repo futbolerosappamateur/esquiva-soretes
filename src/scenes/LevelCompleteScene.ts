@@ -69,11 +69,22 @@ export class LevelCompleteScene extends Phaser.Scene {
     addText(this, lx, y, t.time, { color: UI_COLORS.celeste });
     addText(this, lx, y + 9, formatTime(r.timeMs), { scale: 2, color: r.newTimeRecord ? UI_COLORS.green : UI_COLORS.white });
     y += 30;
+    // Tu mejor tiempo, y cuánto lo mejoraste (o cuánto te faltó).
     const prev = r.previousBestTimeMs;
-    addText(this, lx, y, `${t.bestTime}: ${formatTime(r.newTimeRecord ? r.timeMs : prev)}`, { outline: false, color: UI_COLORS.cream });
-    if (prev !== null && !r.assisted) {
-      const diff = r.timeMs - prev;
-      addText(this, lx, y + 10, `${formatDelta(diff)} S`, { color: diff <= 0 ? UI_COLORS.green : UI_COLORS.red });
+    const delta = (line: Phaser.GameObjects.BitmapText, ms: number) =>
+      addText(this, lx + Math.ceil(line.width) + 5, line.y, formatDelta(ms), { outline: false, color: ms <= 0 ? UI_COLORS.green : UI_COLORS.red });
+    const best = addText(this, lx, y, `${t.bestTime}: ${formatTime(r.newTimeRecord ? r.timeMs : prev)}`, { outline: false, color: UI_COLORS.cream });
+    if (prev !== null && !r.assisted) delta(best, r.timeMs - prev);
+    // Récord del nivel (de cualquier perfil) y la diferencia con este tiempo.
+    const rec = r.levelRecord;
+    const holder = rec ? (rec.mine ? t.yours : rec.nickname) : '';
+    const recLine = addText(this, lx, y + 11, rec ? `${t.levelRecord}: ${formatTime(rec.timeMs)} · ${holder}` : `${t.levelRecord}: ${formatTime(null)}`, {
+      outline: false,
+      color: rec?.mine ? UI_COLORS.green : UI_COLORS.cream,
+    });
+    if (rec && !r.assisted) {
+      if (!rec.mine) delta(recLine, r.timeMs - rec.timeMs);
+      else if (r.levelRecordBeforeMs !== null) delta(recLine, r.timeMs - r.levelRecordBeforeMs);
     }
 
     // Columna derecha: detalle.
@@ -99,20 +110,22 @@ export class LevelCompleteScene extends Phaser.Scene {
     });
 
     // Mensajes de récords (independientes) y desbloqueos.
+    // "Récord" a secas es el del nivel (entre todos los perfiles); lo personal se dice aparte.
     const msgs: [string, number][] = [];
-    if (r.newTimeRecord) {
-      if (prev !== null) msgs.push([`${t.improvedBy} ${((prev - r.timeMs) / 1000).toFixed(1)} ${t.seconds}`, UI_COLORS.green]);
-      msgs.push([t.newTimeRecord, UI_COLORS.green]);
-    }
-    if (r.newScoreRecord) msgs.push([t.newScoreRecord, UI_COLORS.yellow]);
-    if (r.speedRank !== null && r.speedRank <= 10) msgs.push([`${t.rank} ${r.speedRank} · ${TEXTS2.ranking.tabs.speed}`, UI_COLORS.celeste]);
+    if (r.newLevelTimeRecord) msgs.push([t.newTimeRecord, UI_COLORS.green]);
+    if (r.newTimeRecord && prev !== null) msgs.push([`${t.improvedBy} ${((prev - r.timeMs) / 1000).toFixed(1)} ${t.seconds}`, UI_COLORS.green]);
+    else if (r.newTimeRecord && !r.newLevelTimeRecord) msgs.push([t.firstTime, UI_COLORS.celeste]);
+    if (r.newLevelScoreRecord) msgs.push([t.newScoreRecord, UI_COLORS.yellow]);
+    else if (r.newScoreRecord && r.previousBestScore !== null) msgs.push([t.betterScore, UI_COLORS.yellow]);
+    if (r.speedRank !== null && r.speedRank > 1 && r.speedRank <= 10) msgs.push([`${t.rank} ${r.speedRank} · ${TEXTS2.ranking.tabs.speed}`, UI_COLORS.celeste]);
     if (r.assisted) msgs.push([t.assisted, UI_COLORS.gray]);
     r.unlockedCharacters.forEach((name) => msgs.push([`${t.unlocked}: ${name}`, UI_COLORS.green]));
-    let my = 136;
+    let my = 146;
+    const celebrate = r.newLevelTimeRecord || r.newTimeRecord || r.newLevelScoreRecord || r.newScoreRecord;
     msgs.slice(0, 5).forEach(([text, color], i) => {
       const m = addText(this, cx, my, text, { outline: i < 2, color, origin: [0.5, 0], align: 'center', maxWidth: 400 });
-      if (i === 0 && (r.newTimeRecord || r.newScoreRecord)) this.tweens.add({ targets: m, alpha: 0.4, duration: 380, yoyo: true, repeat: -1 });
-      my += 11;
+      if (i === 0 && celebrate) this.tweens.add({ targets: m, alpha: 0.4, duration: 380, yoyo: true, repeat: -1 });
+      my += 10;
     });
 
     // Botones.

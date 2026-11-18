@@ -31,7 +31,9 @@ Idea original de mi hija. Hecho con **Phaser 3**, **TypeScript** y **Vite**.
 - **Contrarreloj** (se habilita al completar el nivel): mismo recorrido, ranking propio y **R**
   para reintentar al toque.
 - **Bonus de velocidad** en modo normal: +2000 / +1000 / +500 según el tiempo.
-- **Pantalla de resultados** nueva: tiempo, mejor tiempo, diferencia, récords, puesto en el ranking.
+- **Pantalla de resultados** nueva: tiempo, tu mejor tiempo, el récord del nivel (de quién es y por
+  cuánto), puesto en el ranking y mensajes de récord. "¡NUEVO RÉCORD DE VELOCIDAD!" es el del nivel
+  entre todos los perfiles; lo personal se dice aparte ("¡SUPERASTE TU MEJOR TIEMPO POR 4.2 SEGUNDOS!").
 - **Vecinas que riegan la vereda** (avisan antes del chorro y el carril del cordón queda seco) y
   la misión del **perro perdido**.
 - **Logros persistentes** que desbloquean personajes, con aviso en pantalla.
@@ -217,7 +219,10 @@ scripts/                  test.mjs (lanzador de pruebas) y build-geo.mjs (datos 
   comportamientos de `src/npc/behaviors.ts`). **Misiones:** `src/data/missions.ts`.
 - **Gráficos definitivos:** declarar los archivos en `src/assets/manifest.ts` (imágenes,
   spritesheets o atlas con fondo transparente, con nombres de frame y punto de apoyo). Reemplazan
-  al gráfico provisional con la misma clave sin tocar la lógica.
+  al gráfico provisional con la misma clave sin tocar la lógica. Cada personaje dibuja su versión de
+  las animaciones con los mismos nombres de cuadro (`ANIMATION_FRAMES` en `src/data/characters.ts`);
+  las ideas para cada uno (el portero revisando la suela, la vieja lavándose las zapatillas...) están
+  anotadas en el campo `animations` de cada personaje.
 
 ## Elementos provisionales
 

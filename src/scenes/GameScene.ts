@@ -118,10 +118,19 @@ export interface LevelResult {
   timeMs: number;
   /** Partida asistida (checkpoint o depuración): no entra al ranking de velocidad. */
   assisted: boolean;
+  /** Récords personales del perfil antes de esta partida. */
   previousBestTimeMs: number | null;
   previousBestScore: number | null;
+  /** Mejoró su propio récord (de tiempo / de puntos). */
   newTimeRecord: boolean;
   newScoreRecord: boolean;
+  /** Récord de velocidad del nivel (de cualquier perfil) después de esta partida. */
+  levelRecord: { timeMs: number; nickname: string; characterId: string; mine: boolean } | null;
+  /** Récord de velocidad del nivel que había antes (para la diferencia). */
+  levelRecordBeforeMs: number | null;
+  /** Batió el récord del nivel (primer puesto de todos los perfiles). */
+  newLevelTimeRecord: boolean;
+  newLevelScoreRecord: boolean;
   /** Puesto en el ranking de velocidad del nivel (1 = el más rápido), o null. */
   speedRank: number | null;
   shoesLeft: number;
@@ -973,8 +982,12 @@ export class GameScene extends Phaser.Scene {
     // Récords de velocidad y puntuación: se evalúan por separado.
     const profile = saveStore.activeProfile();
     const before = recordsRepo.personalBest(levelId, mode, profile.id);
+    const levelTimeBefore = recordsRepo.speedRanking(levelId, mode, 1)[0] ?? null;
+    const levelScoreBefore = recordsRepo.scoreRanking(levelId, mode, 1)[0] ?? null;
     let newTimeRecord = false;
     let newScoreRecord = false;
+    let newLevelTimeRecord = false;
+    let newLevelScoreRecord = false;
     let speedRank: number | null = null;
     if (completed) {
       const official = this.countsForRanking;
@@ -997,6 +1010,8 @@ export class GameScene extends Phaser.Scene {
       if (res.added) {
         newTimeRecord = official && (before.time === null || (before.time.timeMs ?? Infinity) > timeMs);
         newScoreRecord = before.score === null || before.score.score < s.score;
+        newLevelTimeRecord = official && (levelTimeBefore === null || (levelTimeBefore.timeMs ?? Infinity) > timeMs);
+        newLevelScoreRecord = levelScoreBefore === null || levelScoreBefore.score < s.score;
         if (official) {
           const pos = recordsRepo.speedRanking(levelId, mode, 1000).findIndex((e) => e.id === entry.id);
           speedRank = pos >= 0 ? pos + 1 : null;
@@ -1005,6 +1020,7 @@ export class GameScene extends Phaser.Scene {
     }
     const levelOutcome = outcome as LevelResultOutcome | null;
     const cp = this.run.checkpoint;
+    const top = recordsRepo.speedRanking(levelId, mode, 1)[0] ?? null;
     return {
       run: { ...this.run, lifeMarks: [...this.run.lifeMarks], splits: [...this.run.splits] },
       ref: { ...this.run.levelRef },
@@ -1047,6 +1063,10 @@ export class GameScene extends Phaser.Scene {
       previousBestScore: before.score?.score ?? null,
       newTimeRecord,
       newScoreRecord,
+      levelRecord: top && top.timeMs !== null ? { timeMs: top.timeMs, nickname: top.nickname, characterId: top.characterId, mine: top.id === this.run.runId } : null,
+      levelRecordBeforeMs: levelTimeBefore?.timeMs ?? null,
+      newLevelTimeRecord,
+      newLevelScoreRecord,
       speedRank,
       shoesLeft: this.run.lives,
       missionsDone: this.run.missionsDone,

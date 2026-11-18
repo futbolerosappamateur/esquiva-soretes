@@ -38,6 +38,28 @@ export type CharacterUnlock =
 
 export type CelebrationStyle = 'default' | 'hop' | 'trick' | 'champion';
 
+/**
+ * Animaciones de un personaje. Todas usan los nombres de cuadro del esqueleto
+ * común: el arte definitivo de cada personaje (hojas `char-<look>-0..2`, ver
+ * assets/manifest.ts) dibuja SU versión con esos mismos nombres, así cada uno
+ * puede festejar o reaccionar a su manera sin tocar la lógica. Si falta un
+ * cuadro, el juego usa `idle0` sin errores.
+ */
+export type CharacterAnimation = 'idle' | 'walk' | 'run' | 'jump' | 'special' | 'step' | 'disgust' | 'fall' | 'celebrate' | 'gameOver';
+
+export const ANIMATION_FRAMES: Record<CharacterAnimation, string[]> = {
+  idle: ['idle0', 'idle1', 'blink'],
+  walk: ['walk0', 'walk1', 'walk2', 'walk3'],
+  run: ['run0', 'run1', 'run2', 'run3'],
+  jump: ['jumpPrep', 'jumpUp', 'jumpDown'],
+  special: ['special0'],
+  step: ['stepShock', 'stepLift'],
+  disgust: ['stepLook', 'stepDisgust'],
+  fall: ['dizzy'],
+  celebrate: ['win0', 'win1'],
+  gameOver: ['dizzy'],
+};
+
 export interface CharacterDef {
   id: string;
   name: string;
@@ -55,6 +77,12 @@ export interface CharacterDef {
   celebrate: CelebrationStyle;
   /** Perros que lo acompañan (paseador). */
   dogs?: number;
+  /**
+   * Animaciones propias (para el arte definitivo). Las que no figuran usan la
+   * versión común. "(PENDIENTE)" = idea para los sprites definitivos; hoy se
+   * ve la animación común.
+   */
+  animations: Partial<Record<CharacterAnimation, string>>;
 }
 
 /** Estadísticas base (las del pibe, el personaje equilibrado). */
@@ -85,6 +113,7 @@ export const CHARACTERS: CharacterDef[] = [
     drawback: null,
     unlock: { kind: 'starter' },
     celebrate: 'default',
+    animations: { special: 'PASO RELÁMPAGO CON ESTELA' },
   },
   {
     id: 'player_girl',
@@ -98,6 +127,7 @@ export const CHARACTERS: CharacterDef[] = [
     drawback: 'CORRE UN POQUITO MÁS LENTO.',
     unlock: { kind: 'starter' },
     celebrate: 'hop',
+    animations: { special: 'SEGUNDO SALTO CON NUBECITA', celebrate: 'FESTEJA SALTANDO' },
   },
   {
     id: 'player_skater',
@@ -111,6 +141,13 @@ export const CHARACTERS: CharacterDef[] = [
     drawback: 'FRENA MÁS LARGO, SOBRE TODO DURANTE Y DESPUÉS DEL TURBO.',
     unlock: { kind: 'starter' },
     celebrate: 'trick',
+    animations: {
+      walk: 'SE DESLIZA EN EL MONOPATÍN',
+      run: 'SE IMPULSA CON UN PIE',
+      jump: 'SALTA CON EL MONOPATÍN',
+      special: 'TURBO AGACHADA',
+      celebrate: 'FESTEJA CON UN TRUQUITO',
+    },
   },
   {
     id: 'player_runner',
@@ -124,6 +161,7 @@ export const CHARACTERS: CharacterDef[] = [
     drawback: 'DURANTE EL SPRINT NO JUNTA MONEDAS NI OBJETOS.',
     unlock: { kind: 'starter' },
     celebrate: 'champion',
+    animations: { special: 'SPRINT', celebrate: 'FESTEJA COMO SI HUBIERA GANADO UNA CARRERA' },
   },
   {
     id: 'player_portero',
@@ -138,6 +176,7 @@ export const CHARACTERS: CharacterDef[] = [
     unlock: { kind: 'achievement', counter: 'trashDeposited', target: 20 },
     npcAltLook: 'portero-alt',
     celebrate: 'default',
+    animations: { special: 'ESCOBAZO', disgust: 'REVISA LA SUELA DE SUS ZAPATOS (PENDIENTE)' },
   },
   {
     id: 'player_hose',
@@ -151,6 +190,7 @@ export const CHARACTERS: CharacterDef[] = [
     drawback: 'ES LA MÁS LENTA, SALTA MENOS Y SUS CHARCOS TAMBIÉN LA HACEN RESBALAR.',
     unlock: { kind: 'achievement', counter: 'waterJetsDodged', target: 15 },
     celebrate: 'default',
+    animations: { special: 'MANGUERAZO', disgust: 'INTENTA LIMPIARSE LAS ZAPATILLAS CON AGUA (PENDIENTE)' },
   },
   {
     id: 'player_dogwalker',
@@ -164,6 +204,7 @@ export const CHARACTERS: CharacterDef[] = [
     drawback: 'A VECES SE LE ENREDAN LAS CORREAS Y VA MÁS LENTO.',
     unlock: { kind: 'achievement', counter: 'animalMissions', target: 10 },
     celebrate: 'default',
+    animations: { special: 'LOS PERROS OLFATEAN', walk: 'CUANDO SE ENREDAN, INTENTA DESENREDAR LAS CORREAS (PENDIENTE)' },
     dogs: 2,
   },
   {
@@ -178,6 +219,7 @@ export const CHARACTERS: CharacterDef[] = [
     drawback: 'CON EL UNIFORME SALTA UN POCO MENOS.',
     unlock: { kind: 'achievement', counter: 'safeCrossings', target: 25 },
     celebrate: 'default',
+    animations: { special: 'SILBATAZO CON EL BRAZO EN ALTO' },
   },
   {
     id: 'player_neighbor',
@@ -191,6 +233,7 @@ export const CHARACTERS: CharacterDef[] = [
     drawback: null,
     unlock: { kind: 'future', counter: 'flawlessNightLevels', target: 1 },
     celebrate: 'default',
+    animations: {},
   },
 ];
 
