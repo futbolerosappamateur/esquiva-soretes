@@ -106,7 +106,7 @@ export class WorldView {
       .setTint(worldTint);
     this.track(cross, layout.crossStreetX, layout.crossStreetX + CROSS_STREET_WIDTH);
     if (layout.finalStreet) this.addCornerSign(layout.crossStreetX - 8, layout.finalStreet);
-    for (const c of layout.crossings) this.addCornerSign(c.x0 - 8, c.street);
+    for (const c of layout.crossings) if (c.street) this.addCornerSign(c.x0 - 8, c.street);
     const kioskX = layout.crossStreetX + CROSS_STREET_WIDTH + 70;
     const kiosk = scene.add.image(kioskX, LAYOUT.propFrontY, TEX.newsKiosk).setOrigin(0.5, 1).setDepth(LAYOUT.propFrontY).setTint(worldTint);
     this.track(kiosk, kioskX - 24, kioskX + 24);

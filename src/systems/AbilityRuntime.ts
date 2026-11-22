@@ -291,6 +291,8 @@ export class AbilityRuntime implements AbilityHost {
           const ghost = scene.add
             .image(fx + (tx - fx) * t, fy + (ty - fy) * t - player.z, s.texture.key, s.frame.name)
             .setOrigin(s.originX, s.originY)
+            // La misma escala que el pibe (los dibujos con más detalle se muestran achicados).
+            .setScale(s.scaleX, s.scaleY)
             .setFlipX(s.flipX)
             .setDepth(fy + (ty - fy) * t)
             .setTint(0x9fdcff)

@@ -48,6 +48,8 @@ export interface RunState {
   levelRef: LevelRef;
   /** Identificador único del intento (evita registrar dos veces el mismo récord). */
   runId: string;
+  /** Intento del que viene (al retomar desde una esquina), o null. */
+  parentRunId: string | null;
   mode: GameMode;
   /** Personaje elegido: no cambia durante la partida (ni al reintentar desde un checkpoint). */
   characterId: string;
@@ -97,6 +99,7 @@ export function createRun(levelRef: LevelRef, opts: RunOptions = {}): RunState {
   return {
     levelRef: { ...levelRef },
     runId: newRunId(),
+    parentRunId: null,
     mode: opts.mode ?? 'normal',
     characterId: opts.characterId ?? DEFAULT_CHARACTER_ID,
     seed: opts.seed ?? null,
@@ -130,6 +133,7 @@ export function runFromCheckpoint(run: RunState): RunState {
   if (!cp) return createRun(run.levelRef, { seed: run.seed, mode: run.mode, characterId: run.characterId });
   return {
     ...createRun(run.levelRef, { seed: run.seed, mode: run.mode, characterId: run.characterId }),
+    parentRunId: run.runId,
     coins: cp.coins,
     // Lo de antes del checkpoint ya se acreditó al llegar a esa esquina.
     coinsBanked: cp.coins,

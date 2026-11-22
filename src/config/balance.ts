@@ -238,3 +238,37 @@ export const WATER_TUNING = {
   slipTime: 0.9,
   slipDecel: 0.35,
 };
+
+/**
+ * Gente caminando por la vereda (el centro en hora pico): caminan por la zona
+ * jugable en los dos sentidos, esquivan los soretes y los árboles, y algunos
+ * (los atentos) también se corren para no chocar al pibe; los que van con el
+ * celular, no. Chocarse no quita vidas: resta puntos y frena, como mojarse.
+ * A una persona no se la puede saltar (mide más de lo que salta el pibe).
+ */
+export const CROWD_TUNING = {
+  /** Distancia media (px) entre peatones con `crowd: 1` y dificultad máxima. */
+  spacingAtFull: 130,
+  /** Cuánto más gente hay al final de un nivel difícil que al principio de uno fácil. */
+  densityByDifficulty: [0.55, 1.15] as [number, number],
+  /** Velocidad al caminar (px/s): entre la de una señora y la de alguien apurado. */
+  speed: [14, 30] as [number, number],
+  /** Probabilidad de que vaya mirando el celular (no se corre), según la dificultad. */
+  distracted: [0.2, 0.55] as [number, number],
+  /** Huella en el piso (para chocar y para esquivar). */
+  footprint: { shape: 'rect' as const, w: 10, h: 5 },
+  /** Cuánto mira hacia adelante para esquivar (px). */
+  lookAhead: 30,
+  /** Margen (px) que deja al pasar al lado de un sorete o de otra persona. */
+  avoidMargin: 4,
+  /** Velocidad (px/s) con la que se corre hacia el costado. */
+  sideSpeed: 34,
+  /** Franja de profundidad por la que caminan (dentro de la zona jugable). */
+  yMin: 146,
+  yMax: 200,
+  /** Choque: puntos que resta, frenada y tiempo sin volver a chocar con la misma persona. */
+  bumpPenalty: 40,
+  bumpCooldown: 1.2,
+  /** Después de un choque, la persona se queda quieta un instante (s). */
+  bumpPause: 0.6,
+};

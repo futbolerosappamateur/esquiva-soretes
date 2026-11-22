@@ -49,6 +49,7 @@ export type CharacterAnimation = 'idle' | 'walk' | 'run' | 'jump' | 'special' | 
 
 export const ANIMATION_FRAMES: Record<CharacterAnimation, string[]> = {
   idle: ['idle0', 'idle1', 'blink'],
+  // El arte definitivo puede traer hasta 8 cuadros (walk0..walk7, run0..run7): el juego los usa todos.
   walk: ['walk0', 'walk1', 'walk2', 'walk3'],
   run: ['run0', 'run1', 'run2', 'run3'],
   jump: ['jumpPrep', 'jumpUp', 'jumpDown'],

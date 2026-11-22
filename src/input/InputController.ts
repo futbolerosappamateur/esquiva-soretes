@@ -39,8 +39,12 @@ export class InputController {
 
   private readonly onKeyUp = uniqueKeyEvents((event) => this.keys.keyUp(event.code));
 
+  /** Se está moviendo en diagonal con el teclado (ahí muchos teclados no toman la barra espaciadora). */
+  keyboardDiagonal = false;
+
   update(dt: number): void {
     let { x, y } = this.keys.direction();
+    this.keyboardDiagonal = x !== 0 && y !== 0;
     if (x === 0 && y === 0 && touchState.active) {
       x = touchState.x;
       y = touchState.y;

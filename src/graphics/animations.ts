@@ -4,6 +4,8 @@ import { WAVING_NPC_LOOKS } from './textures/npcActorTextures';
 
 /** Claves de animación. */
 export const ANIM = {
+  /** Logo definitivo de la portada (la crea el manifiesto si el archivo está). */
+  logoArt: 'logo-art-anim',
   player: (dirt: number, name: PlayerAnim) => `player-${dirt}-${name}`,
   pigeonPeck: 'pigeon-peck',
   pigeonFly: 'pigeon-fly',
@@ -36,13 +38,23 @@ function maker(anims: Phaser.Animations.AnimationManager): Make {
  * Animaciones del protagonista. Se vuelven a crear cada vez que cambia el
  * personaje elegido, porque sus hojas de sprites se regeneran.
  */
-export function createPlayerAnimations(anims: Phaser.Animations.AnimationManager): void {
+export function createPlayerAnimations(anims: Phaser.Animations.AnimationManager, textures?: Phaser.Textures.TextureManager): void {
   const make = maker(anims);
+  // Ciclos de caminar y correr: 4 cuadros en el arte provisional; el definitivo puede traer
+  // más (walk0..walk7). Con más cuadros sube la velocidad para que el paso dure lo mismo.
+  const cycle = (tex: string, base: string): string[] => {
+    const t = textures?.exists(tex) ? textures.get(tex) : null;
+    const out: string[] = [];
+    for (let i = 0; t?.has(`${base}${i}`); i++) out.push(`${base}${i}`);
+    return out.length ? out : [0, 1, 2, 3].map((i) => `${base}${i}`);
+  };
   for (let dirt = 0; dirt < 3; dirt++) {
     const tex = TEX.player(dirt);
+    const walk = cycle(tex, 'walk');
+    const run = cycle(tex, 'run');
     make(ANIM.player(dirt, 'idle'), tex, ['idle0', 'idle0', 'idle1', 'idle1', 'idle0', 'blink', 'idle0', 'idle1', 'idle1', 'idle0'], 4);
-    make(ANIM.player(dirt, 'walk'), tex, ['walk0', 'walk1', 'walk2', 'walk3'], 8);
-    make(ANIM.player(dirt, 'run'), tex, ['run0', 'run1', 'run2', 'run3'], 13);
+    make(ANIM.player(dirt, 'walk'), tex, walk, (8 * walk.length) / 4);
+    make(ANIM.player(dirt, 'run'), tex, run, (13 * run.length) / 4);
     make(ANIM.player(dirt, 'win'), tex, ['win0', 'win1'], 5);
   }
 }

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from './audio/AudioManager';
-import { GAME_HEIGHT, GAME_WIDTH } from './config/constants';
+import { loadGameFont } from './graphics/BitmapFontBuilder';
+import { canvasSizeFor, installRenderScale, renderScale, watchRenderScale } from './graphics/renderScale';
 import { importLegacyRecords } from './core/migrations';
 import { recordsRepo } from './core/recordsRepository';
 import { createRun } from './core/RunState';
@@ -23,16 +24,24 @@ import { PauseScene } from './scenes/PauseScene';
 import { ProfileSelectScene } from './scenes/ProfileSelectScene';
 import { RecordsScene } from './scenes/RecordsScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
+import { online } from './social/onlineSession';
+import { openAccountPanel, openPublicProfile } from './social/ui/accountPanel';
+import { attachOverlay, isPanelOpen } from './social/ui/overlay';
 
 audio.init();
+// Se dibuja con la resolución de la pantalla (ver graphics/renderScale.ts): antes de crear el juego.
+installRenderScale();
+// La letra se empieza a cargar ya (BootScene la espera antes de escribir).
+void loadGameFont();
 // Los récords de la v0.2 pasan (una sola vez) a la nueva tabla de récords.
 importLegacyRecords();
 
+const canvasSize = canvasSizeFor(renderScale());
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: GAME_WIDTH,
-  height: GAME_HEIGHT,
+  width: canvasSize.width,
+  height: canvasSize.height,
   backgroundColor: '#120c18',
   pixelArt: true,
   roundPixels: true,
@@ -69,12 +78,32 @@ const game = new Phaser.Game({
   ],
 });
 
+// La resolución sigue al tamaño de la ventana (y baja sola si el equipo no da abasto).
+watchRenderScale(game);
+
+// Modo online (si está configurado): arranca en segundo plano, sin frenar el juego.
+attachOverlay(game);
+let termsPrompted = false;
+online.on(() => {
+  if (isPanelOpen()) return;
+  // Enlace para elegir una contraseña nueva, o cuenta recién confirmada que todavía no aceptó las condiciones.
+  const needsTerms = online.status === 'signedIn' && online.account?.adultConfirmed !== true && !termsPrompted;
+  if (online.passwordRecovery || needsTerms) {
+    termsPrompted = true;
+    openAccountPanel();
+  }
+});
+void online.init();
+
 // Acceso para pruebas automatizadas y depuración (sólo en desarrollo o con ?debug).
 if (import.meta.env.DEV || debugFlags.enabled) {
-  (window as unknown as { __ESQUIVA__: { game: Phaser.Game; saveStore: typeof saveStore; recordsRepo: typeof recordsRepo; createRun: typeof createRun } }).__ESQUIVA__ = {
+  (window as unknown as { __ESQUIVA__: object }).__ESQUIVA__ = {
     game,
     saveStore,
     recordsRepo,
     createRun,
+    online,
+    openAccountPanel,
+    openPublicProfile,
   };
 }

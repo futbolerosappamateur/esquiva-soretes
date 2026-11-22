@@ -9,12 +9,15 @@ import { isLevelUnlocked } from '../core/progress';
 import { createRun } from '../core/RunState';
 import { saveStore } from '../core/save';
 import { getCharacter } from '../data/characters';
-import { ICON_FRAMES, TEX } from '../graphics/keys';
+import { ICON_FRAMES } from '../graphics/keys';
 import { Button } from '../ui/Button';
 import { ButtonMenu, type MenuItem } from '../ui/ButtonMenu';
 import { addDim, addPanel } from '../ui/Panel';
 import { addText } from '../ui/text';
 import type { LevelResult } from './GameScene';
+import { online } from '../social/onlineSession';
+import { submissionLabel } from '../social/submissionLabel';
+import { addIcon } from '../graphics/textures/uiTextures';
 
 /**
  * Resultados al completar un nivel: puntos, tiempo, récords (velocidad y
@@ -39,8 +42,8 @@ export class LevelCompleteScene extends Phaser.Scene {
     addDim(this, 0.6);
     addPanel(this, cx, 135, 420, 264);
 
-    const title = addText(this, cx, 6, timeTrial ? t.timeTrialTitle : t.title, { scale: 2, color: timeTrial ? UI_COLORS.orange : UI_COLORS.green, origin: [0.5, 0] });
-    this.tweens.add({ targets: title, y: 8, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const title = addText(this, cx, 4, timeTrial ? t.timeTrialTitle : t.title, { scale: 2, color: timeTrial ? UI_COLORS.orange : UI_COLORS.green, origin: [0.5, 0] });
+    this.tweens.add({ targets: title, y: 5.5, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     addText(this, cx, 25, `${r.barrioName} · NIVEL ${r.levelNumber} · ${r.envLabel} · ${getCharacter(r.characterId).name}`, {
       outline: false,
       color: UI_COLORS.cream,
@@ -51,10 +54,12 @@ export class LevelCompleteScene extends Phaser.Scene {
     if (!timeTrial) {
       for (let i = 0; i < 3; i++) {
         const x = cx - 22 + i * 22;
-        this.add.image(x, 44, TEX.icons, ICON_FRAMES.starEmpty).setScale(1.5);
+        addIcon(this, x, 44, ICON_FRAMES.starEmpty, 1.5);
         if (i < r.stars) {
-          const star = this.add.image(x, 44, TEX.icons, ICON_FRAMES.star).setScale(0);
-          this.tweens.add({ targets: star, scale: 1.5, delay: 300 + i * 280, duration: 240, ease: 'Back.easeOut', onStart: () => audio.play('star', i) });
+          const star = addIcon(this, x, 44, ICON_FRAMES.star, 1.5);
+          const full = star.scaleX;
+          star.setScale(0);
+          this.tweens.add({ targets: star, scale: full, delay: 300 + i * 280, duration: 240, ease: 'Back.easeOut', onStart: () => audio.play('star', i) });
         }
       }
     }
@@ -146,6 +151,16 @@ export class LevelCompleteScene extends Phaser.Scene {
       make(cx + 95, 238, t.map, () => this.toMap());
     }
     new ButtonMenu(this, items, { onBack: () => this.toMap() });
+
+    // Estado del envío a la cuenta online (se actualiza solo cuando responde el servidor).
+    const onlineLine = addText(this, cx, 253, '', { outline: false, origin: [0.5, 0] });
+    const refreshOnline = () => {
+      const label = submissionLabel(r.onlineRunId, true);
+      onlineLine.setText(label?.text ?? '').setTint(label?.color ?? UI_COLORS.gray);
+    };
+    refreshOnline();
+    const offOnline = online.on(refreshOnline);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offOnline);
   }
 
   private stopGame(): void {

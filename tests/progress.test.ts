@@ -97,13 +97,25 @@ describe('Migración del guardado', () => {
     expect(s.seenUnlocks).toEqual(['san-telmo']);
   });
 
-  it('la campaña tiene San Telmo y Monserrat jugables con 3 niveles de 5 cuadras', () => {
-    for (const id of ['san-telmo', 'monserrat']) {
+  it('un barrio donde ya se completó algún nivel nunca queda bloqueado (aunque cambie el orden de la campaña)', () => {
+    const s = migrateSave({ version: 2, barrios: { monserrat: { unlocked: false, completed: false, levels: { 'monserrat-1': { completed: true, stars: 2, bestScore: 5000, plays: 2 } } } } });
+    expect(isBarrioUnlocked(s, 'monserrat')).toBe(true);
+    expect(isLevelUnlocked(s, { barrioId: 'monserrat', levelIndex: 1 })).toBe(true);
+  });
+
+  it('después de Monserrat viene Versalles', () => {
+    const s = createDefaultSave();
+    for (const id of ['san-telmo', 'monserrat']) for (let i = 0; i < 3; i++) applyLevelResult(s, { barrioId: id, levelIndex: i }, { score: 1000, stars: 1 });
+    expect(isBarrioUnlocked(s, 'versalles')).toBe(true);
+  });
+
+  it('la campaña tiene San Telmo, Monserrat y Versalles jugables con 3 niveles de 5 cuadras', () => {
+    for (const id of ['san-telmo', 'monserrat', 'versalles']) {
       const b = getBarrio(id)!;
       expect(b.levels).toHaveLength(3);
       for (const l of b.levels) expect(l.blocks).toHaveLength(5);
     }
-    expect(BARRIOS.filter((b) => b.levels.length > 0).map((b) => b.id)).toEqual(['san-telmo', 'monserrat']);
+    expect(BARRIOS.filter((b) => b.levels.length > 0).map((b) => b.id)).toEqual(['san-telmo', 'monserrat', 'versalles']);
   });
 });
 

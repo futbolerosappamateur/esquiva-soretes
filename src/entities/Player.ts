@@ -5,6 +5,7 @@ import { clamp } from '../core/math';
 import { ANIM, type PlayerAnim } from '../graphics/animations';
 import { FX_FRAMES, TEX } from '../graphics/keys';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
+import { fitToTexture } from '../graphics/renderScale';
 import type { CelebrationStyle, CharacterStats } from '../data/characters';
 import type { Footprint } from '../systems/Collision';
 import { PlayerMotor, type BlockedFn, type MotorBounds, type MotorControls } from './PlayerMotor';
@@ -70,7 +71,7 @@ export class Player {
     this.motor = new PlayerMotor(x, y, stats);
     this.dirt = clamp(dirt, 0, 2);
     this.shadow = scene.add.image(x, y, TEX.fx, FX_FRAMES.shadow).setAlpha(0.3).setDepth(DEPTH.shadow);
-    this.sprite = scene.add.sprite(x, y, TEX.player(this.dirt), 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY);
+    this.sprite = fitToTexture(scene.add.sprite(x, y, TEX.player(this.dirt), 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY));
     this.playAnim('idle');
     this.syncSprite();
   }

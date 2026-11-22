@@ -15,6 +15,16 @@ export function queueManifest(loader: Phaser.Loader.LoaderPlugin): void {
   }
 }
 
+/**
+ * Dibujos con sombreado suave (personajes definitivos, atlas con meta.smooth):
+ * se filtran suave en vez de por píxeles, para que se vean prolijos al
+ * achicarlos (dibujo sin placa de video) o agrandarlos (vista previa grande).
+ */
+export function applySmoothFilter(tex: Phaser.Textures.Texture): void {
+  const meta = (tex.customData as { meta?: { smooth?: unknown } } | undefined)?.meta;
+  if (meta?.smooth === true) tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+}
+
 /** Copia una textura con otra clave (mismos frames). Sirve para el arte propio de cada personaje. */
 export function aliasTexture(textures: Phaser.Textures.TextureManager, from: string, to: string): boolean {
   if (!textures.exists(from)) return false;
@@ -22,6 +32,9 @@ export function aliasTexture(textures: Phaser.Textures.TextureManager, from: str
   if (textures.exists(to)) textures.remove(to);
   const tex = textures.addImage(to, src.getSourceImage() as HTMLImageElement);
   if (!tex) return false;
+  // Datos del atlas (por ejemplo, la escala con la que se muestra un dibujo hecho al doble).
+  tex.customData = { ...src.customData };
+  applySmoothFilter(tex);
   for (const name of src.getFrameNames()) {
     const f = src.get(name);
     tex.add(name, 0, f.cutX, f.cutY, f.cutWidth, f.cutHeight);
@@ -50,6 +63,14 @@ export function applyManifest(textures: Phaser.Textures.TextureManager, anims: P
     if (textures.exists(e.key)) textures.remove(e.key);
     textures.renameTexture(tmp, e.key);
     nameFrames(textures, e);
+    applySmoothFilter(textures.get(e.key));
+    if (e.smooth) textures.get(e.key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+    if (e.displayScale) {
+      // Dibujo en alta resolución: fitToTexture lo muestra a su tamaño en el juego.
+      const tex = textures.get(e.key);
+      const data = (tex.customData ?? {}) as { meta?: Record<string, unknown> };
+      tex.customData = { ...data, meta: { ...data.meta, displayScale: e.displayScale, smooth: e.smooth === true || data.meta?.smooth === true } };
+    }
     for (const a of e.anims ?? []) {
       if (anims.exists(a.key)) anims.remove(a.key);
       anims.create({ key: a.key, frames: a.frames.map((frame) => ({ key: e.key, frame })), frameRate: a.frameRate, repeat: a.repeat ?? -1 });

@@ -12,6 +12,8 @@ import { uniqueKeyEvents } from '../input/keyEvents';
  *   ?level=san-telmo-2  arranca directo en ese nivel (sin pasar por el mapa)
  *   ?block=3            empieza en la esquina anterior a la cuadra 3
  *   ?env=night          fuerza una ambientación (day, night, autumn, rain...)
+ *   ?rasgos=villa-lugano  arma el nivel con los rasgos de otro barrio (gente, árboles, vereda rota...)
+ *   ?hora=19:30 / ?hora=real  prototipo de luz según la hora (de noche usa la ambientación de noche)
  *   ?unlockall          desbloquea todos los barrios con niveles y todos los personajes (sólo para probar)
  */
 export interface DebugFlags {
@@ -20,6 +22,10 @@ export interface DebugFlags {
   block: number | null;
   level: string | null;
   env: string | null;
+  /** Barrio cuyos rasgos se usan para armar el nivel (?rasgos=). */
+  traits: string | null;
+  /** Hora para el prototipo de luz (?hora=19:30 o ?hora=real). */
+  hour: string | null;
   unlockAll: boolean;
 }
 
@@ -35,6 +41,8 @@ function readFlags(): DebugFlags {
     block: parsedBlock,
     level: params.get('level'),
     env: params.get('env'),
+    traits: params.get('rasgos'),
+    hour: params.get('hora'),
     unlockAll: params.has('unlockall'),
   };
 }

@@ -1,6 +1,6 @@
 /**
  * Todos los textos del juego en un solo lugar (castellano rioplatense).
- * La fuente pixelada es de mayúsculas: los textos se muestran en mayúsculas.
+ * La letra del juego muestra todo en mayúsculas (ver graphics/BitmapFontBuilder.ts).
  */
 export const TEXTS = {
   titleTop: 'ESQUIVA',
@@ -208,7 +208,9 @@ export const TEXTS2 = {
     dogDelivered: '¡TOBY VOLVIÓ A CASA!',
     wet: '¡ME MOJARON!',
     waterDodged: '¡ESQUIVASTE EL CHORRO!',
+    diagonalJumpTip: 'SI NO SALTA EN DIAGONAL, PROBÁ CON X',
     waterproof: '¡A MÍ EL AGUA NO ME HACE NADA!',
+    crowdTip: '¡CUÁNTA GENTE! NO TE LA LLEVES PUESTA',
     levelDone: '¡NIVEL COMPLETADO!',
     honk: '¡BIIIP!',
   },
@@ -315,6 +317,48 @@ export const TEXTS2 = {
     confirmNo: 'NO, VOLVER',
     done: 'PROGRESO REINICIADO',
   },
+  /** Modo online (cuentas y rankings globales). El panel de la cuenta tiene sus textos en social/ui/onlineTexts.ts. */
+  online: {
+    // Estado en el menú (corto: entra al lado del logo).
+    local: 'MODO LOCAL',
+    connecting: 'ONLINE: CONECTANDO',
+    guest: 'INVITADO (LOCAL)',
+    connected: 'ONLINE: CONECTADO',
+    localProfile: 'ONLINE: PERFIL LOCAL',
+    otherAccount: 'ONLINE: OTRA CUENTA',
+    offline: 'SIN CONEXIÓN',
+    noSession: 'ONLINE: SIN SESIÓN',
+    account: 'CUENTA ONLINE',
+    tag: 'ONLINE',
+    tagNoSession: 'ONLINE (SIN SESIÓN)',
+    localNoteOnline: 'ONLINE: SE GUARDA EN TU CUENTA · LOCAL: SÓLO EN ESTE DISPOSITIVO',
+    removeLinked: 'SE BORRA LA COPIA DE ESTE DISPOSITIVO. EL PERFIL ONLINE SIGUE EN TU CUENTA.',
+    // Rankings
+    source: { device: 'ESTE DISPOSITIVO', global: 'GLOBAL' },
+    see: 'VER',
+    loading: 'CARGANDO RANKING...',
+    noConnection: 'SIN CONEXIÓN CON EL SERVIDOR: PROBÁ MÁS TARDE',
+    notConfigured: 'EL RANKING GLOBAL NO ESTÁ CONFIGURADO EN ESTA VERSIÓN',
+    globalNote: 'RANKING GLOBAL · SÓLO PARTIDAS VERIFICADAS, COMPLETAS Y SIN AYUDAS',
+    globalEmpty: 'TODAVÍA NO HAY MARCAS GLOBALES EN ESTE NIVEL. ¡PODÉS SER EL PRIMERO!',
+    myRank: 'TU PUESTO',
+    tapHint: 'TOCÁ UN APODO PARA VER SU PERFIL',
+    // Resultados
+    sending: 'ENVIANDO RESULTADO A TU CUENTA...',
+    queued: 'SIN CONEXIÓN: SE ENVÍA SOLO CUANDO VUELVA',
+    waitingLogin: 'GUARDADO: SE ENVÍA CUANDO INICIES SESIÓN',
+    verified: 'RESULTADO VERIFICADO',
+    rank: 'PUESTO',
+    globalWord: 'GLOBAL',
+    savedNotRanked: 'GUARDADO EN TU CUENTA',
+    assisted: 'GUARDADO EN TU CUENTA · CON AYUDAS: FUERA DEL RANKING',
+    hiddenProfile: 'GUARDADO EN TU CUENTA · TU PERFIL NO APARECE EN RANKINGS',
+    suspicious: 'GUARDADO, PERO EN REVISIÓN: NO ENTRA AL RANKING',
+    rejected: 'RESULTADO NO VÁLIDO: NO SE SUMÓ A TU CUENTA',
+    error: 'NO SE PUDO ENVIAR EL RESULTADO',
+    guestHint: 'COMO INVITADO NO ENTRÁS AL RANKING GLOBAL: CREÁ UNA CUENTA EN PERFIL',
+    localProfileHint: 'ESTE PERFIL ES LOCAL: NO SUMA A TU CUENTA ONLINE',
+  },
 } as const;
 
 /** Frases graciosas que aparecen durante el juego (se eligen al azar). */
@@ -322,6 +366,7 @@ export const PHRASES = {
   closeCall: ['¡POR UN PELO!', '¡CASI LA PISÁS!', '¡QUÉ REFLEJOS!', '¡UFFF!'],
   hit: ['¡QUÉ ASCO!', '¡MIRÁ POR DÓNDE CAMINÁS!', '¡NOOO, LAS NUEVAS!', '¡LA PUCHA!', '¡ESO NO ERA BARRO!'],
   looseTile: ['¡BALDOSA FLOJA!', '¡SPLASH!', '¡ME EMPAPÉ!'],
+  bump: ['¡UY, PERDÓN!', '¡PERMISO!', '¡ESTÁ LLENO DE GENTE!', '¡ME LO LLEVÉ PUESTO!'],
   combo: ['¡GAMBETA!', '¡QUÉ FINTA!', '¡ESQUIVADOR SERIAL!', '¡GAMBETA DE CRACK!', '¡IMPARABLE!'],
   perfect: '¡ZAPATILLAS INTACTAS!',
   splat: '¡PLAF!',

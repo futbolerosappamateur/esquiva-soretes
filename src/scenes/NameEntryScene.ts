@@ -5,6 +5,7 @@ import { UI_COLORS } from '../config/palette';
 import { TEXTS2 } from '../config/texts';
 import { NICKNAME_MAX, sanitizeNickname } from '../core/progress';
 import { saveStore } from '../core/save';
+import { fitToTexture } from '../graphics/renderScale';
 import { ensureButtonTexture } from '../graphics/textures/uiTextures';
 import { uniqueKeyEvents } from '../input/keyEvents';
 import { addText } from '../ui/text';
@@ -58,7 +59,7 @@ export class NameEntryScene extends Phaser.Scene {
       [...row].forEach((ch, c) => {
         const x = x0 + c * KEY_W;
         const y = 92 + r * (KEY_H + 4);
-        const bg = this.add.image(x, y, ensureButtonTexture(this.textures, KEY_W - 3, KEY_H, 'idle')).setInteractive({ useHandCursor: true });
+        const bg = fitToTexture(this.add.image(x, y, ensureButtonTexture(this.textures, KEY_W - 3, KEY_H, 'idle'))).setInteractive({ useHandCursor: true });
         const text = ch === ' ' ? 'ESP' : ch === '<' ? '←' : ch === '>' ? 'OK' : ch;
         const label = addText(this, x, y, text, { outline: false, color: UI_COLORS.cream, origin: 0.5 });
         bg.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {

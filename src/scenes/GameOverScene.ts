@@ -11,6 +11,8 @@ import { ButtonMenu, type MenuItem } from '../ui/ButtonMenu';
 import { addDim, addPanel } from '../ui/Panel';
 import { addText } from '../ui/text';
 import type { LevelResult } from './GameScene';
+import { online } from '../social/onlineSession';
+import { submissionLabel } from '../social/submissionLabel';
 
 export class GameOverScene extends Phaser.Scene {
   private result!: LevelResult;
@@ -75,6 +77,16 @@ export class GameOverScene extends Phaser.Scene {
     make(TEXTS2.gameOver.map, () => this.toScene(SCENES.WORLD_MAP));
     make(t.menu, () => this.toScene(SCENES.MENU));
     new ButtonMenu(this, items, { onBack: () => this.toScene(SCENES.WORLD_MAP) });
+
+    // Estado del envío a la cuenta online (se actualiza solo cuando responde el servidor).
+    const onlineLine = addText(this, cx, 246, '', { outline: false, origin: [0.5, 0] });
+    const refreshOnline = () => {
+      const label = submissionLabel(r.onlineRunId, false);
+      onlineLine.setText(label?.text ?? '').setTint(label?.color ?? UI_COLORS.gray);
+    };
+    refreshOnline();
+    const offOnline = online.on(refreshOnline);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offOnline);
   }
 
   private retryCheckpoint(): void {

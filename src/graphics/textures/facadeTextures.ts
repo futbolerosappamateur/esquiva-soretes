@@ -4,9 +4,9 @@ import { TEX } from '../keys';
 import { RNG } from '../../core/rng';
 import { mix, shade } from '../color';
 import { measureText } from '../fontData';
-import { CORNER_SPECS, FACADE_SPECS, type FacadeSpec, type ShopKind } from '../facadeSpecs';
+import { CORNER_SPECS, FACADE_SPECS, VERSALLES_SPECS, type FacadeSpec, type ShopKind } from '../facadeSpecs';
 
-export { CORNER_SPECS, FACADE_SPECS, type FacadeSpec, type ShopKind };
+export { CORNER_SPECS, FACADE_SPECS, VERSALLES_SPECS, type FacadeSpec, type ShopKind };
 
 /**
  * Fachadas porteñas generadas por código a partir de una especificación.
@@ -335,8 +335,15 @@ function drawAC(pc: PixelCanvas, x: number, y: number, spec: FacadeSpec): void {
   pc.rect(x + 7, y + 2, 1, 3, '#8a8a86');
 }
 
-function drawFlag(pc: PixelCanvas, x: number, y: number): void {
+function drawFlag(pc: PixelCanvas, x: number, y: number, kind: true | 'velez' = true): void {
   pc.line(x, y, x + 6, y - 6, '#5a5a62');
+  if (kind === 'velez') {
+    // Blanca con la V azul.
+    pc.rect(x + 6, y - 12, 12, 9, '#f4f4f0');
+    pc.line(x + 7, y - 11, x + 12, y - 4, '#2456a8').line(x + 8, y - 11, x + 12, y - 5, '#2456a8');
+    pc.line(x + 17, y - 11, x + 12, y - 4, '#2456a8').line(x + 16, y - 11, x + 12, y - 5, '#2456a8');
+    return;
+  }
   pc.rect(x + 6, y - 12, 12, 3, '#74b9e8');
   pc.rect(x + 6, y - 9, 12, 3, '#ffffff');
   pc.rect(x + 6, y - 6, 12, 3, '#74b9e8');
@@ -407,6 +414,22 @@ function drawGraffiti(pc: PixelCanvas, x: number, y: number, w: number, h: numbe
   for (let i = 0; i < 3; i++) tmp.px(3 + rng.int(0, w), 3 + rng.int(0, h), c2);
   tmp.outline('#1f1a24');
   pc.draw(tmp, x - 3, y - 3);
+}
+
+/** El paredón pintado de blanco con la V azul de los hinchas de Vélez. */
+function drawVelezMural(pc: PixelCanvas, x: number, y: number, w: number, h: number): void {
+  const blue = '#2456a8';
+  pc.rect(x + 2, y + 2, w - 4, h - 4, '#f4f4f0');
+  const cx = Math.round(x + w / 2);
+  const top = y + 4;
+  const bottom = y + h - 5;
+  for (let k = -2; k <= 2; k++) {
+    pc.line(Math.round(x + w * 0.22) + k, top, cx + k, bottom, blue);
+    pc.line(Math.round(x + w * 0.78) + k, top, cx + k, bottom, blue);
+  }
+  // Una franjita azul arriba y abajo, como las paredes pintadas del barrio.
+  pc.hline(x + 2, y + 2, w - 4, blue);
+  pc.hline(x + 2, y + h - 3, w - 4, blue);
 }
 
 function drawPoster(pc: PixelCanvas, x: number, y: number, rng: RNG, wall: string): void {
@@ -519,8 +542,11 @@ function drawGroundFloor(pc: PixelCanvas, W: number, H: number, spec: FacadeSpec
   } else {
     // Paredón con mural
     pc.rect(4, y0 + 8, W - 8, GROUND_H - 16, shade(spec.wall, -0.06));
-    drawGraffiti(pc, 10, y0 + 14, W - 26, 14, rng);
-    drawGraffiti(pc, 18, y0 + 22, W - 40, 8, rng);
+    if (spec.mural === 'velez') drawVelezMural(pc, 4, y0 + 8, W - 8, GROUND_H - 16);
+    else {
+      drawGraffiti(pc, 10, y0 + 14, W - 26, 14, rng);
+      drawGraffiti(pc, 18, y0 + 22, W - 40, 8, rng);
+    }
     freeSpans.push([3, W - 3]);
   }
 
@@ -547,7 +573,7 @@ function drawUpperFloor(pc: PixelCanvas, y0: number, W: number, spec: FacadeSpec
     drawBalcony(pc, cx, y0 + 26, spec, rng);
     if (spec.ac && i < bays.length - 1 && rng.chance(0.4)) drawAC(pc, cx + 10, y0 + 9, spec);
   });
-  if (spec.flag && floorIndex === spec.floors - 1) drawFlag(pc, bays[0] + 8, y0 + 20);
+  if (spec.flag && floorIndex === spec.floors - 1) drawFlag(pc, bays[0] + 8, y0 + 20, spec.flag);
   if (spec.cat && floorIndex === spec.floors - 1) drawCat(pc, bays[bays.length - 1] - 2, y0 + 19);
   pc.hline(0, y0 + FLOOR_H - 2, W, shade(spec.trim, -0.05));
   pc.hline(0, y0 + FLOOR_H - 1, W, shade(spec.wall, -0.15));
@@ -603,7 +629,7 @@ export function drawFacade(spec: FacadeSpec): PixelCanvas {
 }
 
 export function generateFacadeTextures(textures: Phaser.Textures.TextureManager): void {
-  for (const spec of [...FACADE_SPECS, ...CORNER_SPECS]) {
+  for (const spec of [...FACADE_SPECS, ...CORNER_SPECS, ...VERSALLES_SPECS]) {
     drawFacade(spec).addTo(textures, TEX.facade(spec.id));
   }
 }

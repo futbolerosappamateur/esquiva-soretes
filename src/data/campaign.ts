@@ -1,3 +1,4 @@
+import type { BarrioTraits } from './barrioTraits';
 import type { EnvironmentId } from './environments';
 
 /**
@@ -61,6 +62,8 @@ export interface BarrioDef {
   comuna: number;
   /** Tema visual de las veredas (ver world/themes.ts). */
   theme: string;
+  /** Lo que hace distinto a este barrio al jugarlo (ver data/barrioTraits.ts). */
+  traits?: Partial<BarrioTraits>;
   /** Niveles jugables. Vacío = "próximamente". */
   levels: LevelDef[];
   /** Si sus niveles son un recorrido provisional (se avisa en pantalla). */
@@ -81,6 +84,69 @@ const route = (street: string, corners: string[]): StreetBlock[] =>
 
 const SAN_TELMO_SOUTH = ['INDEPENDENCIA', 'ESTADOS UNIDOS', 'CARLOS CALVO', 'HUMBERTO 1°', 'SAN JUAN', 'COCHABAMBA'];
 const MONSERRAT_NORTH = ['INDEPENDENCIA', 'CHILE', 'MÉXICO', 'VENEZUELA', 'BELGRANO', 'MORENO'];
+
+/*
+ * Versalles: el barrio de prueba, donde se sacan las fotos para el arte
+ * definitivo. Casas bajas, árboles, tranquilidad, perros, vecinas regando y
+ * todos hinchas de Vélez. El recorrido son las cuadras que se fotografían: todo
+ * el pasaje Aguaribay (3 cuadras) y dos de Madero. FALTAN LAS ESQUINAS: mientras
+ * tanto el juego muestra sólo el nombre de la calle.
+ */
+const VERSALLES_ROUTE: StreetBlock[] = [
+  { street: 'PASAJE AGUARIBAY', from: '', to: '' },
+  { street: 'PASAJE AGUARIBAY', from: '', to: '' },
+  { street: 'PASAJE AGUARIBAY', from: '', to: '' },
+  { street: 'MADERO', from: '', to: '' },
+  { street: 'MADERO', from: '', to: '' },
+];
+
+const VERSALLES: BarrioDef = {
+  id: 'versalles',
+  name: 'VERSALLES',
+  geoName: 'Versalles',
+  comuna: 10,
+  theme: 'versalles',
+  // Tranquilo de gente, pero lleno de perros (y de lo que dejan): nadie apurado por la
+  // vereda, pocas palomas y muchos paseadores y vecinas.
+  traits: { crowd: 0, pigeons: 0.6, brokenSidewalk: 0.2, background: { walker: 1.8, lady: 1.4, tourist: 0 } },
+  provisional: true,
+  levels: [
+    {
+      id: 'versalles-1',
+      number: 1,
+      name: 'LA SIESTA EN AGUARIBAY',
+      environment: 'day',
+      blocks: VERSALLES_ROUTE,
+      difficulty: [0.35, 0.85],
+      traffic: 0.6,
+      missionBlock: 2,
+      missionId: 'lost-dog',
+      waterBlocks: [1, 3],
+    },
+    {
+      id: 'versalles-2',
+      number: 2,
+      name: 'AGUARIBAY DE NOCHE',
+      environment: 'night',
+      blocks: VERSALLES_ROUTE,
+      difficulty: [0.45, 0.92],
+      traffic: 0.5,
+      missionBlock: 1,
+    },
+    {
+      id: 'versalles-3',
+      number: 3,
+      name: 'OTOÑO EN AGUARIBAY',
+      environment: 'autumn',
+      blocks: VERSALLES_ROUTE,
+      difficulty: [0.55, 0.98],
+      traffic: 0.6,
+      missionBlock: 3,
+      missionId: 'lost-dog',
+      waterBlocks: [1, 2, 4],
+    },
+  ],
+};
 
 const SAN_TELMO: BarrioDef = {
   id: 'san-telmo',
@@ -130,6 +196,8 @@ const MONSERRAT: BarrioDef = {
   geoName: 'Monserrat',
   comuna: 1,
   theme: 'monserrat',
+  // El centro: la vereda llena de gente apurada, palomas de la Plaza de Mayo y pocos árboles.
+  traits: { crowd: 0.8, pigeons: 1.8, trees: 0.6, background: { walker: 0.6, lady: 1, tourist: 1.4 } },
   provisional: true,
   levels: [
     {
@@ -170,14 +238,23 @@ const MONSERRAT: BarrioDef = {
 };
 
 /** Barrio "próximamente": aparece en el mapa pero todavía no tiene niveles. */
-const soon = (id: string, name: string, geoName: string, comuna: number): BarrioDef => ({
+const soon = (id: string, name: string, geoName: string, comuna: number, traits?: Partial<BarrioTraits>): BarrioDef => ({
   id,
   name,
   geoName,
   comuna,
   theme: 'san-telmo',
+  traits,
   levels: [],
 });
+
+/*
+ * Rasgos ya pensados para los barrios del lanzamiento que todavía no tienen
+ * niveles (se pueden probar en cualquier nivel con ?rasgos=<barrio>).
+ */
+const LA_BOCA_TRAITS: Partial<BarrioTraits> = { crowd: 0.5, trees: 0.4, brokenSidewalk: 0.5, background: { walker: 0.6, lady: 0.8, tourist: 2.5 } };
+const PALERMO_TRAITS: Partial<BarrioTraits> = { crowd: 0.35, pigeons: 0.8, brokenSidewalk: 0.15, background: { walker: 2.5, lady: 1, tourist: 0.8 } };
+const LUGANO_TRAITS: Partial<BarrioTraits> = { crowd: 0.2, trees: 0, brokenSidewalk: 1, background: { walker: 1, lady: 1, tourist: 0 } };
 
 /**
  * Los 48 barrios en el orden de la campaña (cada uno se desbloquea al
@@ -186,6 +263,9 @@ const soon = (id: string, name: string, geoName: string, comuna: number): Barrio
 export const BARRIOS: BarrioDef[] = [
   SAN_TELMO,
   MONSERRAT,
+  // El barrio de prueba del arte. Tercero para no cambiar el progreso guardado ni las
+  // reglas del servidor (se prueba directo con ?level=versalles-1).
+  VERSALLES,
   soon('san-nicolas', 'SAN NICOLÁS', 'San Nicolas', 1),
   soon('puerto-madero', 'PUERTO MADERO', 'Puerto Madero', 1),
   soon('retiro', 'RETIRO', 'Retiro', 1),
@@ -194,7 +274,7 @@ export const BARRIOS: BarrioDef[] = [
   soon('san-cristobal', 'SAN CRISTÓBAL', 'San Cristobal', 3),
   soon('constitucion', 'CONSTITUCIÓN', 'Constitucion', 1),
   soon('barracas', 'BARRACAS', 'Barracas', 4),
-  soon('la-boca', 'LA BOCA', 'La Boca', 4),
+  soon('la-boca', 'LA BOCA', 'La Boca', 4, LA_BOCA_TRAITS),
   soon('parque-patricios', 'PARQUE PATRICIOS', 'Parque Patricios', 4),
   soon('nueva-pompeya', 'NUEVA POMPEYA', 'Nueva Pompeya', 4),
   soon('boedo', 'BOEDO', 'Boedo', 5),
@@ -202,7 +282,7 @@ export const BARRIOS: BarrioDef[] = [
   soon('caballito', 'CABALLITO', 'Caballito', 6),
   soon('almagro', 'ALMAGRO', 'Almagro', 5),
   soon('villa-crespo', 'VILLA CRESPO', 'Villa Crespo', 15),
-  soon('palermo', 'PALERMO', 'Palermo', 14),
+  soon('palermo', 'PALERMO', 'Palermo', 14, PALERMO_TRAITS),
   soon('colegiales', 'COLEGIALES', 'Colegiales', 13),
   soon('belgrano', 'BELGRANO', 'Belgrano', 13),
   soon('nunez', 'NÚÑEZ', 'Nuñez', 13),
@@ -221,11 +301,10 @@ export const BARRIOS: BarrioDef[] = [
   soon('villa-devoto', 'VILLA DEVOTO', 'Villa Devoto', 11),
   soon('monte-castro', 'MONTE CASTRO', 'Monte Castro', 10),
   soon('villa-real', 'VILLA REAL', 'Villa Real', 10),
-  soon('versalles', 'VERSALLES', 'Versalles', 10),
   soon('liniers', 'LINIERS', 'Liniers', 9),
   soon('mataderos', 'MATADEROS', 'Mataderos', 9),
   soon('parque-avellaneda', 'PARQUE AVELLANEDA', 'Parque Avellaneda', 9),
-  soon('villa-lugano', 'VILLA LUGANO', 'Villa Lugano', 8),
+  soon('villa-lugano', 'VILLA LUGANO', 'Villa Lugano', 8, LUGANO_TRAITS),
   soon('villa-riachuelo', 'VILLA RIACHUELO', 'Villa Riachuelo', 8),
   soon('villa-soldati', 'VILLA SOLDATI', 'Villa Soldati', 8),
   soon('flores', 'FLORES', 'Flores', 7),

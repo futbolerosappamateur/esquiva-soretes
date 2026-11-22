@@ -7,11 +7,13 @@ import { formatDelta, formatTime } from '../core/LevelClock';
 import { formatThousands } from '../core/math';
 import type { LifeMark } from '../core/RunState';
 import { ICON_FRAMES, TEX, UI_FRAMES } from '../graphics/keys';
+import { fitToTexture } from '../graphics/renderScale';
 import { SIGNAL_FRAMES } from '../graphics/textures/crossingTextures';
 import { isTouchPrimary } from '../input/device';
 import { TouchControls } from '../input/TouchControls';
 import { addText } from '../ui/text';
 import type { GameScene, HudInit } from './GameScene';
+import { addIcon } from '../graphics/textures/uiTextures';
 
 const BAR = { x: 150, y: 262, w: 180, h: 4 };
 
@@ -77,7 +79,7 @@ export class HudScene extends Phaser.Scene {
 
     addText(this, 8, 2, TEXTS.hud.score, { color: UI_COLORS.yellow });
     this.scoreText = addText(this, 7, 9, formatThousands(snap.score), { scale: 2, color: UI_COLORS.white });
-    this.add.image(12, 32, TEX.icons, ICON_FRAMES.coin);
+    addIcon(this, 12, 32, ICON_FRAMES.coin);
     this.coinText = addText(this, 20, 29, `${snap.coins}`, { color: UI_COLORS.yellow });
     this.comboText = addText(this, 52, 29, '', { color: UI_COLORS.orange });
     this.comboBar = this.add.graphics();
@@ -105,7 +107,7 @@ export class HudScene extends Phaser.Scene {
 
     this.progressBar = this.add.graphics();
     this.add.image(BAR.x + BAR.w + 9, BAR.y - 3, TEX.ui, UI_FRAMES.flag);
-    this.head = this.add.image(BAR.x, BAR.y - 7, TEX.playerHead);
+    this.head = fitToTexture(this.add.image(BAR.x, BAR.y - 7, TEX.playerHead));
 
     // Semáforo peatonal grande (sólo en los cruces).
     this.signalIcon = this.add.image(0, 0, TEX.hudSignal, SIGNAL_FRAMES.pedStop);
@@ -212,7 +214,9 @@ export class HudScene extends Phaser.Scene {
 
   private blockLine(i: number): string {
     const b = this.data0.blocks[i];
-    return b ? `${b.street}, ENTRE ${b.from} Y ${b.to}` : '';
+    if (!b) return '';
+    // Mientras no estén cargadas las esquinas, sólo la calle.
+    return b.from && b.to ? `${b.street}, ENTRE ${b.from} Y ${b.to}` : b.street;
   }
 
   private showLevelIntro(data: HudInit): void {
@@ -358,7 +362,7 @@ export class HudScene extends Phaser.Scene {
     // Cuadra actual o esquina con cruce.
     const block = this.data0.blocks[snap.block - 1];
     const label = snap.crossing
-      ? `${TEXTS2.hud.corner} ${this.data0.blocks[snap.crossing.index]?.to ?? ''}`
+      ? `${TEXTS2.hud.corner} ${this.data0.blocks[snap.crossing.index]?.to ?? ''}`.trim()
       : `${TEXTS2.hud.block} ${snap.block}/${snap.blocks} · ${block?.street ?? ''}`;
     if (label !== this.lastBlockLabel) {
       this.lastBlockLabel = label;

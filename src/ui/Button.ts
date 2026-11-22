@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { FONTS } from '../graphics/BitmapFontBuilder';
+import { FONT_SIZE, FONTS } from '../graphics/BitmapFontBuilder';
+import { fitToTexture } from '../graphics/renderScale';
 import { ensureButtonTexture, type ButtonState } from '../graphics/textures/uiTextures';
 
 export interface ButtonOptions {
@@ -10,7 +11,7 @@ export interface ButtonOptions {
   depth?: number;
 }
 
-/** Botón pixelado que funciona con mouse, toque y teclado (vía ButtonMenu). */
+/** Botón que funciona con mouse, toque y teclado (vía ButtonMenu). */
 export class Button {
   readonly container: Phaser.GameObjects.Container;
   readonly width: number;
@@ -38,8 +39,8 @@ export class Button {
       focus: ensureButtonTexture(scene.textures, this.width, this.height, 'focus'),
       down: ensureButtonTexture(scene.textures, this.width, this.height, 'down'),
     };
-    this.bg = scene.add.image(0, 0, this.keys.idle);
-    this.label = scene.add.bitmapText(0, 0, FONTS.PLAIN, text.toUpperCase()).setOrigin(0.5, 0.5);
+    this.bg = fitToTexture(scene.add.image(0, 0, this.keys.idle));
+    this.label = scene.add.bitmapText(0, 0, FONTS.PLAIN, text.toUpperCase(), FONT_SIZE[FONTS.PLAIN]).setOrigin(0.5, 0.5);
     // Los botones son interfaz: no se mueven con la cámara.
     // (también en los hijos, así el área táctil sigue al botón aunque la cámara se mueva).
     this.container = scene.add.container(Math.round(x), Math.round(y), [this.bg, this.label]).setScrollFactor(0, 0, true);

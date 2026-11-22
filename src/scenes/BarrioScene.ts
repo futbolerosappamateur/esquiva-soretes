@@ -11,7 +11,7 @@ import { recordsRepo } from '../core/recordsRepository';
 import { saveStore } from '../core/save';
 import { getBarrio, type BarrioDef } from '../data/campaign';
 import { getEnvironment } from '../data/environments';
-import { ensurePanelTexture } from '../graphics/textures/uiTextures';
+import { addIcon, addPanelImage } from '../graphics/textures/uiTextures';
 import { ICON_FRAMES, TEX } from '../graphics/keys';
 import { isTouchPrimary } from '../input/device';
 import { Button } from '../ui/Button';
@@ -84,7 +84,7 @@ export class BarrioScene extends Phaser.Scene {
     if (first < 0) first = 0;
     if (this.requestedFocus !== null && this.requestedFocus < this.barrio.levels.length) first = this.requestedFocus;
     this.barrio.levels.forEach((_, i) => this.buildCard(i));
-    this.cursor = this.add.image(0, 0, TEX.icons, ICON_FRAMES.arrowDown).setDepth(10);
+    this.cursor = addIcon(this, 0, 0, ICON_FRAMES.arrowDown).setDepth(10);
     this.tweens.add({ targets: this.cursor, y: '+=3', duration: 320, yoyo: true, repeat: -1 });
 
     const t = TEXTS2.barrio;
@@ -123,7 +123,7 @@ export class BarrioScene extends Phaser.Scene {
       x += img.width;
     }
     for (let sx = 0; sx < w; sx += 64) rt.draw(TEX.sidewalk, sx, h - 12);
-    const frame = this.add.image(GAME_WIDTH / 2, 58, ensurePanelTexture(this.textures, w + 10, h + 10));
+    const frame = addPanelImage(this, GAME_WIDTH / 2, 58, w + 10, h + 10);
     frame.setDepth(-1);
     void LAYOUT;
   }
@@ -136,31 +136,31 @@ export class BarrioScene extends Phaser.Scene {
     const unlocked = isLevelUnlocked(save, ref);
     const lp = levelProgress(save, level.id);
     const x = GAME_WIDTH / 2 + (i - 1) * (CARD_W + 10);
-    const frame = this.add.image(0, 0, ensurePanelTexture(this.textures, CARD_W, CARD_H));
+    const frame = addPanelImage(this, 0, 0, CARD_W, CARD_H);
     const parts: Phaser.GameObjects.GameObject[] = [frame];
     const top = -CARD_H / 2;
     const icon = env.id === 'night' ? ICON_FRAMES.moon : env.id === 'autumn' ? ICON_FRAMES.leaf : ICON_FRAMES.sun;
     const card: Card = { container: undefined as never, frame, unlocked, completed: unlocked && isTimeTrialUnlocked(save, level.id), levelId: level.id };
     parts.push(addText(this, -CARD_W / 2 + 10, top + 8, `${TEXTS2.barrio.level} ${level.number}`, { color: UI_COLORS.yellow }));
-    parts.push(this.add.image(CARD_W / 2 - 16, top + 12, TEX.icons, icon));
+    parts.push(addIcon(this, CARD_W / 2 - 16, top + 12, icon));
     parts.push(addText(this, CARD_W / 2 - 26, top + 8, env.label, { color: UI_COLORS.cream, origin: [1, 0] }));
     parts.push(addText(this, 0, top + 24, level.name, { color: UI_COLORS.white, origin: [0.5, 0], align: 'center', maxWidth: CARD_W - 16 }));
     if (unlocked) {
       for (let s = 0; s < 3; s++) {
-        parts.push(this.add.image((s - 1) * 18, top + 58, TEX.icons, s < lp.stars ? ICON_FRAMES.star : ICON_FRAMES.starEmpty));
+        parts.push(addIcon(this, (s - 1) * 18, top + 58, s < lp.stars ? ICON_FRAMES.star : ICON_FRAMES.starEmpty));
       }
       card.recordText = addText(this, 0, top + 72, '', { origin: [0.5, 0] });
       parts.push(card.recordText);
-      parts.push(this.add.image(-44, top + 90, TEX.icons, ICON_FRAMES.clock));
+      parts.push(addIcon(this, -44, top + 90, ICON_FRAMES.clock));
       card.timeText = addText(this, -36, top + 86, '', { outline: false });
       parts.push(card.timeText);
     } else {
       parts.push(this.add.rectangle(0, 12, CARD_W - 8, CARD_H - 44, 0x120c18, 0.5));
-      parts.push(this.add.image(0, 2, TEX.icons, ICON_FRAMES.lock).setScale(2));
+      parts.push(addIcon(this, 0, 2, ICON_FRAMES.lock, 2));
       parts.push(addText(this, 0, 22, TEXTS2.barrio.locked, { color: UI_COLORS.cream, origin: [0.5, 0], align: 'center', maxWidth: CARD_W - 20 }));
     }
     if (card.completed) {
-      parts.push(this.add.image(CARD_W / 2 - 12, CARD_H / 2 - 12, TEX.icons, ICON_FRAMES.check));
+      parts.push(addIcon(this, CARD_W / 2 - 12, CARD_H / 2 - 12, ICON_FRAMES.check));
     }
     card.container = this.add.container(Math.round(x), CARD_Y, parts);
     if (!unlocked) card.container.setAlpha(0.85);

@@ -7,11 +7,12 @@ import { barrioStars, levelProgress } from '../core/progress';
 import { records } from '../core/records';
 import { saveStore } from '../core/save';
 import { BARRIOS } from '../data/campaign';
-import { ICON_FRAMES, TEX } from '../graphics/keys';
+import { ICON_FRAMES } from '../graphics/keys';
 import { Button } from '../ui/Button';
 import { ButtonMenu } from '../ui/ButtonMenu';
 import { addDim, addPanel } from '../ui/Panel';
 import { addText } from '../ui/text';
+import { addIcon } from '../graphics/textures/uiTextures';
 
 /** Récords personales y estadísticas (superpuesta al menú). */
 export class RecordsScene extends Phaser.Scene {
@@ -57,7 +58,7 @@ export class RecordsScene extends Phaser.Scene {
       b.levels.forEach((l) => {
         const lp = levelProgress(save, l.id);
         addText(this, 70, y, `NIVEL ${l.number}`, { color: UI_COLORS.cream });
-        for (let s = 0; s < 3; s++) this.add.image(150 + s * 10, y + 4, TEX.icons, s < lp.stars ? ICON_FRAMES.starSmall : ICON_FRAMES.starSmallEmpty);
+        for (let s = 0; s < 3; s++) addIcon(this, 150 + s * 10, y + 4, s < lp.stars ? ICON_FRAMES.starSmall : ICON_FRAMES.starSmallEmpty);
         addText(this, GAME_WIDTH - 60, y, lp.bestScore > 0 ? formatThousands(lp.bestScore) : '-', { color: UI_COLORS.white, origin: [1, 0] });
         y += 10;
       });

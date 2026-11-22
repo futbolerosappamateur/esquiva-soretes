@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config/constants';
+import { logicalPoint } from '../graphics/renderScale';
 import { TEX, UI_FRAMES } from '../graphics/keys';
 import { clamp } from '../core/math';
 import { touchState } from './TouchState';
@@ -81,27 +82,28 @@ export class TouchControls {
 
   private onDown(pointer: Phaser.Input.Pointer): void {
     if (!pointer.wasTouch) return;
+    const pt = logicalPoint(pointer);
     if (!this.shown) this.setShown(true);
     if (!this.enabled) return;
-    const dx = pointer.x - PAUSE_BUTTON_POS.x;
-    const dy = pointer.y - PAUSE_BUTTON_POS.y;
+    const dx = pt.x - PAUSE_BUTTON_POS.x;
+    const dy = pt.y - PAUSE_BUTTON_POS.y;
     if (dx * dx + dy * dy < 18 * 18) {
       touchState.queuePause();
       return;
     }
-    const sx = pointer.x - SPECIAL_POS.x;
-    const sy = pointer.y - SPECIAL_POS.y;
+    const sx = pt.x - SPECIAL_POS.x;
+    const sy = pt.y - SPECIAL_POS.y;
     if (this.hasSpecial && sx * sx + sy * sy < (SPECIAL_RADIUS + 4) * (SPECIAL_RADIUS + 4)) {
       touchState.queueSpecial();
       this.specialIcon.setScale(1.2);
       this.scene.time.delayedCall(120, () => this.specialIcon.setScale(1.5));
       return;
     }
-    if (pointer.x < GAME_WIDTH * 0.5) {
+    if (pt.x < GAME_WIDTH * 0.5) {
       if (this.joyPointer !== null) return;
       this.joyPointer = pointer.id;
-      this.origin.x = clamp(pointer.x, JOY_RADIUS + 6, GAME_WIDTH * 0.5 - JOY_RADIUS);
-      this.origin.y = clamp(pointer.y, 60, GAME_HEIGHT - JOY_RADIUS - 6);
+      this.origin.x = clamp(pt.x, JOY_RADIUS + 6, GAME_WIDTH * 0.5 - JOY_RADIUS);
+      this.origin.y = clamp(pt.y, 60, GAME_HEIGHT - JOY_RADIUS - 6);
       this.base.setPosition(this.origin.x, this.origin.y);
       this.updateStick(pointer);
     } else {
@@ -131,8 +133,9 @@ export class TouchControls {
   }
 
   private updateStick(pointer: Phaser.Input.Pointer): void {
-    let dx = pointer.x - this.origin.x;
-    let dy = pointer.y - this.origin.y;
+    const pt = logicalPoint(pointer);
+    let dx = pt.x - this.origin.x;
+    let dy = pt.y - this.origin.y;
     const len = Math.hypot(dx, dy);
     if (len > JOY_RADIUS) {
       dx = (dx / len) * JOY_RADIUS;

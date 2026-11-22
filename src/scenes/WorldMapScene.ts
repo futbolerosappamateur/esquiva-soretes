@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { GAME_HEIGHT, GAME_WIDTH, SCENES } from '../config/constants';
+import { fitToTexture, logicalPoint } from '../graphics/renderScale';
 import { UI_COLORS } from '../config/palette';
 import { TEXTS2 } from '../config/texts';
 import {
@@ -25,6 +26,7 @@ import { parseBarriosGeoJson, projectBarrios, provisionalMap, rasterizeMap, scal
 import { MapRenderer, type BarrioVisual } from '../world/map/MapRenderer';
 import { uniqueKeyEvents } from '../input/keyEvents';
 import { CHARACTERS, isPlayable } from '../data/characters';
+import { addIcon } from '../graphics/textures/uiTextures';
 
 const GEO_KEY = 'caba-barrios';
 const ZOOMS = [1, 2, 3] as const;
@@ -118,8 +120,8 @@ export class WorldMapScene extends Phaser.Scene {
 
     this.mapImage = this.add.image(0, 0, this.level().key).setOrigin(0, 0);
     this.paths = this.add.graphics();
-    this.token = this.add.image(0, 0, TEX.playerHead).setOrigin(0.5, 1);
-    this.tweens.add({ targets: this.token, scaleY: 0.9, duration: 360, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.token = fitToTexture(this.add.image(0, 0, TEX.playerHead).setOrigin(0.5, 1));
+    this.tweens.add({ targets: this.token, scaleY: this.token.scaleY * 0.9, duration: 360, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.tooltip = addText(this, 0, 0, '', { color: UI_COLORS.white, origin: [0.5, 1] }).setDepth(30).setVisible(false);
 
     this.buildUi();
@@ -224,7 +226,7 @@ export class WorldMapScene extends Phaser.Scene {
       if (isBarrioCompleted(save, b.id)) frame = ICON_FRAMES.badge;
       else if (!isBarrioUnlocked(save, b.id) && (i === 0 || isBarrioUnlocked(save, BARRIOS[i - 1].id))) frame = ICON_FRAMES.lock;
       if (!frame) return;
-      const m = this.add.image(0, 0, TEX.icons, frame).setDepth(5);
+      const m = addIcon(this, 0, 0, frame).setDepth(5);
       m.setData('barrio', i);
       m.setData('lp', lp);
       this.markers.push(m);
@@ -362,7 +364,7 @@ export class WorldMapScene extends Phaser.Scene {
     back.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.toMenu());
     addText(this, 24, 6, TEXTS2.map.back, { color: UI_COLORS.cream, depth });
     addText(this, GAME_WIDTH / 2, 6, `${CITY_NAME}`, { color: UI_COLORS.yellow, origin: [0.5, 0], depth });
-    this.add.image(GAME_WIDTH - 92, 10, TEX.icons, ICON_FRAMES.coin).setDepth(depth);
+    addIcon(this, GAME_WIDTH - 92, 10, ICON_FRAMES.coin).setDepth(depth);
     addText(this, GAME_WIDTH - 84, 6, `${saveStore.get().wallet.coins}`, { color: UI_COLORS.yellow, depth });
     const plus = this.add.image(GAME_WIDTH - 12, 10, TEX.icons, ICON_FRAMES.plus).setDepth(depth).setInteractive({ useHandCursor: true });
     const minus = this.add.image(GAME_WIDTH - 32, 10, TEX.icons, ICON_FRAMES.minus).setDepth(depth).setInteractive({ useHandCursor: true });
@@ -373,7 +375,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.panelTitle = addText(this, 10, py + 6, '', { scale: 2, color: UI_COLORS.yellow, depth });
     this.panelLine = addText(this, 10, py + 25, '', { color: UI_COLORS.cream, depth });
     this.panelNote = addText(this, 10, py + 34, '', { color: UI_COLORS.gray, depth, maxWidth: 300 });
-    for (let k = 0; k < 9; k++) this.panelStars.push(this.add.image(0, py + 30, TEX.icons, ICON_FRAMES.starSmall).setDepth(depth).setVisible(false));
+    for (let k = 0; k < 9; k++) this.panelStars.push(addIcon(this, 0, py + 30, ICON_FRAMES.starSmall).setDepth(depth).setVisible(false));
     this.enterButton = new Button(this, GAME_WIDTH - 62, py + 20, TEXTS2.map.enter, { width: 100, height: 20, onClick: () => this.enterSelected(), depth });
     const hint = isTouchPrimary() ? TEXTS2.map.hintTouch : TEXTS2.map.hintKeys;
     addText(this, GAME_WIDTH - 4, GAME_HEIGHT - PANEL_H - 2, this.provisional ? TEXTS2.map.fallback : TEXTS2.map.attribution, {
@@ -464,9 +466,13 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private setupInput(): void {
-    this.input.on(Phaser.Input.Events.POINTER_DOWN, (p: Phaser.Input.Pointer) => {
+    // Los punteros vienen en píxeles del lienzo (resolución de la pantalla): se pasan a unidades del juego.
+    const L = (q: Phaser.Input.Pointer) => ({ ...logicalPoint(q), id: q.id, isDown: q.isDown, wasTouch: q.wasTouch });
+    const downPointers = () => this.input.manager.pointers.filter((q) => q.isDown).map(L);
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, (raw: Phaser.Input.Pointer) => {
+      const p = L(raw);
       if (this.isOverUi(p.x, p.y)) return;
-      const active = this.input.manager.pointers.filter((q) => q.isDown);
+      const active = downPointers();
       if (active.length >= 2) {
         const [a, b] = active;
         this.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) };
@@ -475,9 +481,10 @@ export class WorldMapScene extends Phaser.Scene {
       }
       this.drag = { id: p.id, x: p.x, y: p.y, cx: this.center.x, cy: this.center.y, moved: false };
     });
-    this.input.on(Phaser.Input.Events.POINTER_MOVE, (p: Phaser.Input.Pointer) => {
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, (raw: Phaser.Input.Pointer) => {
+      const p = L(raw);
       if (this.pinch) {
-        const active = this.input.manager.pointers.filter((q) => q.isDown);
+        const active = downPointers();
         if (active.length >= 2) {
           const [a, b] = active;
           const d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -509,9 +516,10 @@ export class WorldMapScene extends Phaser.Scene {
         if (i >= 0) this.tooltip.setText(BARRIOS[i].name).setPosition(Math.round(p.x), Math.round(p.y - 6));
       }
     });
-    this.input.on(Phaser.Input.Events.POINTER_UP, (p: Phaser.Input.Pointer) => {
+    this.input.on(Phaser.Input.Events.POINTER_UP, (raw: Phaser.Input.Pointer) => {
+      const p = L(raw);
       if (this.pinch) {
-        if (this.input.manager.pointers.filter((q) => q.isDown).length < 2) this.pinch = null;
+        if (downPointers().length < 2) this.pinch = null;
         return;
       }
       const drag = this.drag;
@@ -522,7 +530,8 @@ export class WorldMapScene extends Phaser.Scene {
       if (i === this.selected) this.enterSelected();
       else this.select(i);
     });
-    this.input.on(Phaser.Input.Events.POINTER_WHEEL, (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+    this.input.on(Phaser.Input.Events.POINTER_WHEEL, (raw: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+      const p = L(raw);
       if (this.isOverUi(p.x, p.y)) return;
       this.setZoom(this.zoomIndex + (dy < 0 ? 1 : -1), { x: p.x, y: p.y });
     });
@@ -645,7 +654,7 @@ export class WorldMapScene extends Phaser.Scene {
         this.tweens.add({ targets: banner, scale: { from: 0.5, to: 1 }, duration: 300, ease: 'Back.easeOut' });
         this.tweens.add({ targets: banner, alpha: 0, delay: 2600, duration: 400, onComplete: () => banner.destroy() });
         for (let k = 0; k < 10; k++) {
-          const sp = this.add.image(lp.x, lp.y, TEX.icons, ICON_FRAMES.starSmall).setDepth(8);
+          const sp = addIcon(this, lp.x, lp.y, ICON_FRAMES.starSmall).setDepth(8);
           const a = (k / 10) * Math.PI * 2;
           this.tweens.add({ targets: sp, x: lp.x + Math.cos(a) * 24, y: lp.y + Math.sin(a) * 18, alpha: 0, duration: 700, onComplete: () => sp.destroy() });
         }

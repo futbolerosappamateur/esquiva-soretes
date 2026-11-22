@@ -46,7 +46,13 @@ export const TEX = {
 
   ui: 'ui',
   logo: 'logo',
+  /** Logo definitivo de la portada (animado), si se cargó: ver assets/manifest.ts. */
+  logoArt: 'logo-art',
   mascot: 'mascot',
+  /** Flechita que marca la opción elegida en los menús. */
+  cursor: 'menu-cursor',
+  /** Íconos de los menús dibujados con detalle (ver addIcon). */
+  iconsHd: 'icons-hd',
 
   // --- v0.2 ---------------------------------------------------------------
   /** Calzada transversal de los cruces (con senda peatonal). */
@@ -142,7 +148,6 @@ export const UI_FRAMES = {
   jump: 'jump',
   jumpDown: 'jump-down',
   pause: 'pause',
-  cursor: 'cursor',
   flag: 'flag',
   fullscreen: 'fullscreen',
 } as const;
@@ -159,6 +164,9 @@ export const PROP_FRAMES = {
 
 /** Calcomanías decorativas del piso. */
 export const DECAL_FRAMES = ['crack1', 'crack2', 'stain1', 'stain2', 'gum', 'cover', 'patch', 'paper', 'butt'] as const;
+
+/** Marcas extra de la vereda rota (aparte de DECAL_FRAMES, para no cambiar los niveles existentes). */
+export const BROKEN_DECAL_FRAMES = ['hole', 'bigCrack', 'rubble', 'crack1', 'crack2', 'patch'] as const;
 
 /** Razas de los perros del paseador. */
 export type DogKind = 'small' | 'medium' | 'big' | 'sausage';

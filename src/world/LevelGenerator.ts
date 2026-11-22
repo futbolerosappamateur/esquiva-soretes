@@ -1,20 +1,23 @@
 import { DEPTH, LAYOUT } from '../config/constants';
-import { COIN_TUNING, CROSSING_TUNING, LEVEL_GEN, WATER_TUNING } from '../config/balance';
+import { COIN_TUNING, CROSSING_TUNING, CROWD_TUNING, LEVEL_GEN, WATER_TUNING } from '../config/balance';
 import { clamp, lerp } from '../core/math';
 import { RNG } from '../core/rng';
+import { DEFAULT_TRAITS, isDefaultBackground, type BarrioTraits } from '../data/barrioTraits';
 import type { ScriptedPattern, StreetBlock } from '../data/campaign';
 import { ENVIRONMENTS, type EnvironmentDef } from '../data/environments';
 import { variantOf } from '../entities/obstacles/ObstacleTypes';
 import { CAR_STYLES } from '../graphics/carStyles';
-import { DECAL_FRAMES, DOG_KINDS, FX_FRAMES, PROP_FRAMES, TEX } from '../graphics/keys';
+import { BROKEN_DECAL_FRAMES, DECAL_FRAMES, DOG_KINDS, FX_FRAMES, PROP_FRAMES, TEX } from '../graphics/keys';
 import { expand, footprintsOverlap } from '../systems/Collision';
 import {
   PROP_DEFS,
   type BlockSegment,
   type CoinPlacement,
   type CrossingSegment,
+  type DecalPlacement,
   type LevelLayout,
   type NpcKind,
+  type NpcPlacement,
   type ObstaclePlacement,
   type PropKind,
   type PropPlacement,
@@ -54,6 +57,8 @@ export interface LevelGenOptions {
   /** Cuadras donde riega una vecina. */
   waterBlocks?: number[];
   coins?: boolean;
+  /** Lo que hace distinto al barrio (por defecto, DEFAULT_TRAITS). */
+  traits?: BarrioTraits;
 }
 
 /**
@@ -62,6 +67,13 @@ export interface LevelGenOptions {
  */
 export function generateLevelLayout(opts: LevelGenOptions): LevelLayout {
   const rng = new RNG(opts.seed);
+  const traits = opts.traits ?? DEFAULT_TRAITS;
+  // Cada rasgo del barrio usa su propia semilla: con los rasgos por defecto,
+  // el nivel queda idéntico al de siempre (los récords siguen valiendo).
+  const traitRng = (salt: number) => new RNG((opts.seed ^ salt) >>> 0);
+  const treeRng = traitRng(0x7ee5a1);
+  const npcRng = traitRng(0x0c0ffe);
+  const pigeonRng = traitRng(0x9a10a5);
   const layout: LevelLayout = {
     length: 0,
     worldWidth: 0,
@@ -76,6 +88,7 @@ export function generateLevelLayout(opts: LevelGenOptions): LevelLayout {
     cars: [],
     pigeons: [],
     npcs: [],
+    crowd: [],
     coins: [],
     mission: null,
     waterLadies: [],
@@ -122,22 +135,28 @@ export function generateLevelLayout(opts: LevelGenOptions): LevelLayout {
   placeFacades(layout, opts.theme, rng);
   layout.blocks.forEach((seg, i) => {
     const spec = opts.blocks[i];
-    placeProps(layout, seg, opts.theme, rng);
+    placeProps(layout, seg, opts.theme, rng, traits, treeRng);
     const missionId = opts.missionId ?? 'trash-to-bin';
     if (opts.missionBlock === i) placeMissionTarget(layout, seg, missionId);
-    const reaches = placeObstacles(layout, seg, spec, opts.env, rng);
+    const reaches = placeObstacles(layout, seg, spec, opts.env, rng, traits);
     if (opts.coins !== false) placeCoins(layout, seg, reaches, rng);
     if (opts.missionBlock === i) {
       if (missionId === 'lost-dog') placeLostDog(layout, seg, reaches, rng);
       else placeMissionItems(layout, seg, reaches, rng);
     }
-    placePigeons(layout, seg, rng);
-    placeNpcs(layout, seg, rng);
+    placePigeons(layout, seg, rng, traits, pigeonRng);
+    placeNpcs(layout, seg, rng, traits, npcRng);
   });
   placeDecor(layout, opts.env, rng);
+  if (traits.brokenSidewalk > DEFAULT_TRAITS.brokenSidewalk) placeBrokenSidewalk(layout, traits.brokenSidewalk, traitRng(0xb20cea));
   placeCars(layout, opts.theme, rng);
   // Con su propia semilla: agregar vecinas no cambia el resto del nivel.
   if (opts.waterBlocks?.length) placeWaterLadies(layout, opts.waterBlocks, new RNG((opts.seed ^ 0x5a17e3) >>> 0));
+  // La gente se ubica al final, cuando ya están los soretes, las vecinas y la misión.
+  if (traits.crowd > 0) {
+    const crowdRng = traitRng(0xc40d3d);
+    layout.blocks.forEach((seg) => placeCrowd(layout, seg, traits, crowdRng));
+  }
   return layout;
 }
 
@@ -203,7 +222,7 @@ function placeFacades(layout: LevelLayout, theme: NeighborhoodTheme, rng: RNG): 
 // Árboles, faroles, cestos y parada de colectivo (junto al cordón)
 // ---------------------------------------------------------------------------
 
-function placeProps(layout: LevelLayout, seg: BlockSegment, theme: NeighborhoodTheme, rng: RNG): void {
+function placeProps(layout: LevelLayout, seg: BlockSegment, theme: NeighborhoodTheme, rng: RNG, traits: BarrioTraits, treeRng: RNG): void {
   const sequence: PropKind[] = ['tree', 'lamp', 'tree', 'bin', 'tree', 'lamp', 'tree', 'binBags'];
   const L = seg.endX - seg.startX;
   let i = rng.int(0, sequence.length - 1);
@@ -217,16 +236,22 @@ function placeProps(layout: LevelLayout, seg: BlockSegment, theme: NeighborhoodT
     }
     const y = LAYOUT.propFrontY - (kind === 'tree' ? rng.int(0, 1) : 0);
     const variant = kind === 'tree' ? rng.weighted(theme.trees.map((t) => ({ item: t.variant, weight: t.weight }))) : 0;
-    layout.props.push({ kind, x, y, variant });
+    // Barrio con pocos árboles (rasgo `trees`): algunos lugares quedan vacíos,
+    // a veces con la cazuela sin árbol. Se sortea con su propia semilla y se
+    // consumen los mismos números que si el árbol estuviera, así el resto del
+    // nivel no cambia.
+    const keep = kind !== 'tree' || traits.trees >= 1 || treeRng.next() < traits.trees;
+    if (keep) layout.props.push({ kind, x, y, variant });
+    else if (treeRng.chance(0.5)) layout.decals.push({ texture: TEX.props, frame: PROP_FRAMES.treePit, x, y: y - 2, depth: DEPTH.groundDecal - 2 });
     if (kind === 'tree') {
-      layout.decals.push({ texture: TEX.props, frame: PROP_FRAMES.treePit, x, y: y - 2, depth: DEPTH.groundDecal - 2 });
+      const around: DecalPlacement[] = [{ texture: TEX.props, frame: PROP_FRAMES.treePit, x, y: y - 2, depth: DEPTH.groundDecal - 2 }];
       if (rng.chance(0.55)) {
-        layout.decals.push({ texture: TEX.props, frame: PROP_FRAMES.rootTiles, x: x + (rng.chance(0.5) ? -20 : 20), y: y - 9, depth: DEPTH.groundDecal - 2 });
+        around.push({ texture: TEX.props, frame: PROP_FRAMES.rootTiles, x: x + (rng.chance(0.5) ? -20 : 20), y: y - 9, depth: DEPTH.groundDecal - 2 });
       }
       // Hojas o flores caídas alrededor del árbol.
       const petals = variant === 2;
       for (let k = 0; k < (petals ? 14 : 6); k++) {
-        layout.decals.push({
+        around.push({
           texture: TEX.fx,
           frame: FX_FRAMES.leaf,
           x: x + rng.int(-34, 34),
@@ -236,6 +261,7 @@ function placeProps(layout: LevelLayout, seg: BlockSegment, theme: NeighborhoodT
           depth: DEPTH.groundDecal - 1,
         });
       }
+      if (keep) layout.decals.push(...around);
     }
     x += kind === 'tree' ? rng.int(110, 150) : rng.int(95, 130);
     i++;
@@ -324,7 +350,7 @@ export interface BlockReach {
   originX: number;
 }
 
-function placeObstacles(layout: LevelLayout, seg: BlockSegment, spec: BlockSpec, env: EnvironmentDef, rng: RNG): BlockReach {
+function placeObstacles(layout: LevelLayout, seg: BlockSegment, spec: BlockSpec, env: EnvironmentDef, rng: RNG, traits: BarrioTraits): BlockReach {
   const x0 = seg.startX;
   const L = seg.endX - seg.startX;
   // Todo se calcula en coordenadas locales de la cuadra (0 = comienzo de la vereda).
@@ -347,6 +373,13 @@ function placeObstacles(layout: LevelLayout, seg: BlockSegment, spec: BlockSpec,
   extendTo(grid.colOf(LEVEL_GEN.startClear - 40));
 
   const weights: Record<string, number> = { leaves: env.leafPileWeight };
+  // Vereda rota: más baldosas flojas. Casi sin árboles: menos montones de hojas
+  // (con algunos árboles, el viento igual trae hojas).
+  const tiles = Math.max(0.3, 1 + 4 * (traits.brokenSidewalk - DEFAULT_TRAITS.brokenSidewalk));
+  if (tiles !== 1) weights.tiles = weights.tileRow = tiles;
+  if (traits.trees < 0.5) weights.leaves = env.leafPileWeight * Math.max(0.2, traits.trees * 2);
+  // Donde hay mucha gente, la gente reemplaza a parte de los soretes: más tramos libres.
+  if (traits.crowd > 0) weights.rest = 1 + traits.crowd * 2.5;
   const usable = L - LEVEL_GEN.startClear - LEVEL_GEN.endClear;
   const script = [...(spec.script ?? [])].sort((a, b) => a.at - b.at);
   let scriptIndex = 0;
@@ -585,6 +618,31 @@ function placeDecor(layout: LevelLayout, env: EnvironmentDef, rng: RNG): void {
   }
 }
 
+/** Cuánto aparece cada marca de la vereda rota. */
+const BROKEN_WEIGHTS: Record<(typeof BROKEN_DECAL_FRAMES)[number], number> = { hole: 2, bigCrack: 2, rubble: 1.5, crack1: 1, crack2: 1, patch: 2 };
+
+/** Vereda rota (rasgo `brokenSidewalk`): baldosas que faltan, grietas largas, parches y cascotes. */
+function placeBrokenSidewalk(layout: LevelLayout, broken: number, rng: RNG): void {
+  const streets = streetRanges(layout);
+  const count = Math.round((layout.worldWidth / 100) * (broken - DEFAULT_TRAITS.brokenSidewalk) * 2.4);
+  const options = BROKEN_DECAL_FRAMES.map((f) => ({ item: f, weight: BROKEN_WEIGHTS[f] }));
+  for (let i = 0; i < count; i++) {
+    const frame = rng.weighted(options);
+    let x = rng.range(0, layout.worldWidth);
+    let y = rng.range(LAYOUT.sidewalkTop + 6, LAYOUT.sidewalkBottom - 6);
+    if (frame === 'hole' || frame === 'patch') {
+      // Alineadas a la grilla de baldosas.
+      x = Math.floor(x / LAYOUT.tileW) * LAYOUT.tileW + LAYOUT.tileW / 2;
+      y = LAYOUT.sidewalkTop + Math.floor((y - LAYOUT.sidewalkTop) / LAYOUT.tileH) * LAYOUT.tileH + LAYOUT.tileH / 2;
+    }
+    if (inStreet(streets, x - 14, x + 14)) continue;
+    // Lejos de los obstáculos (que las baldosas flojas se sigan distinguiendo) y de los árboles.
+    if (nearObstacle(layout, x, y, 18)) continue;
+    if (layout.props.some((p) => Math.abs(p.x - x) < 20 && y > p.y - 16)) continue;
+    layout.decals.push({ texture: TEX.decals, frame, x: Math.round(x), y: Math.round(y), flip: rng.chance(0.5), depth: DEPTH.groundDecal - 3 });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Autos estacionados, palomas y peatones
 // ---------------------------------------------------------------------------
@@ -614,7 +672,8 @@ function placeCars(layout: LevelLayout, theme: NeighborhoodTheme, rng: RNG): voi
   }
 }
 
-function placePigeons(layout: LevelLayout, seg: BlockSegment, rng: RNG): void {
+function placePigeons(layout: LevelLayout, seg: BlockSegment, rng: RNG, traits: BarrioTraits, pigeonRng: RNG): void {
+  const before = layout.pigeons.length;
   for (let x = seg.startX + rng.int(300, 500); x < seg.endX - 100; x += rng.int(450, 800)) {
     const count = rng.int(1, 3);
     const y = rng.int(LAYOUT.walkMinY + 6, LAYOUT.walkMaxY - 8);
@@ -625,18 +684,91 @@ function placePigeons(layout: LevelLayout, seg: BlockSegment, rng: RNG): void {
       layout.pigeons.push({ x: px, y: py });
     }
   }
+  // Rasgo `pigeons` (con su propia semilla, sin tocar el resto del nivel).
+  if (traits.pigeons < 1) {
+    const kept = layout.pigeons.slice(before).filter(() => pigeonRng.next() < traits.pigeons);
+    layout.pigeons.length = before;
+    layout.pigeons.push(...kept);
+  } else if (traits.pigeons > 1) {
+    // Bandadas extra: en promedio hay una cada 625 px de cuadra.
+    const extra = Math.round((traits.pigeons - 1) * Math.max(1, (seg.endX - seg.startX) / 625));
+    for (let k = 0; k < extra; k++) {
+      const x = pigeonRng.range(seg.startX + 260, seg.endX - 120);
+      const y = pigeonRng.int(LAYOUT.walkMinY + 6, LAYOUT.walkMaxY - 8);
+      const count = pigeonRng.int(2, 4);
+      for (let i = 0; i < count; i++) {
+        const px = Math.round(x + i * pigeonRng.int(8, 14));
+        const py = y + pigeonRng.int(-6, 6);
+        if (nearObstacle(layout, px, py, 14)) continue;
+        layout.pigeons.push({ x: px, y: py });
+      }
+    }
+  }
 }
 
-function placeNpcs(layout: LevelLayout, seg: BlockSegment, rng: RNG): void {
+function placeNpcs(layout: LevelLayout, seg: BlockSegment, rng: RNG, traits: BarrioTraits, npcRng: RNG): void {
+  // Los de siempre se sortean igual aunque el barrio tenga otra mezcla: así el resto del nivel no cambia.
+  const usual = usualNpcs(seg, rng);
+  layout.npcs.push(...(isDefaultBackground(traits) ? usual : npcsFor(seg, traits, npcRng)));
+}
+
+/** Uno de cada tipo por cuadra (paseador con sus perros, señora y turista). */
+function usualNpcs(seg: BlockSegment, rng: RNG): NpcPlacement[] {
   const kinds: NpcKind[] = ['walker', 'lady', 'tourist'];
   const L = seg.endX - seg.startX;
   const minX = seg.startX - 10;
   const maxX = seg.endX + 16;
-  rng.shuffle(kinds).forEach((kind, i) => {
+  return rng.shuffle(kinds).map((kind, i): NpcPlacement => {
     const x = Math.round(seg.startX + L * (0.18 + i * 0.3) + rng.int(-200, 200));
     const dogs = kind === 'walker' ? rng.shuffle(DOG_KINDS.map((_, k) => k)).slice(0, rng.int(3, 4)) : [];
-    layout.npcs.push({ kind, x: clamp(x, minX + 20, maxX - 20), dir: rng.chance(0.6) ? -1 : 1, dogs, minX, maxX });
+    return { kind, x: clamp(x, minX + 20, maxX - 20), dir: rng.chance(0.6) ? -1 : 1, dogs, minX, maxX };
   });
+}
+
+/** Peatones del fondo según la mezcla del barrio (rasgo `background`: promedio por cuadra de cada tipo). */
+function npcsFor(seg: BlockSegment, traits: BarrioTraits, rng: RNG): NpcPlacement[] {
+  const L = seg.endX - seg.startX;
+  const minX = seg.startX - 10;
+  const maxX = seg.endX + 16;
+  const kinds: NpcKind[] = [];
+  for (const kind of ['walker', 'lady', 'tourist'] as NpcKind[]) {
+    const avg = Math.max(0, traits.background[kind]);
+    const n = Math.floor(avg) + (rng.next() < avg - Math.floor(avg) ? 1 : 0);
+    for (let k = 0; k < n; k++) kinds.push(kind);
+  }
+  rng.shuffle(kinds);
+  return kinds.map((kind, i): NpcPlacement => {
+    const x = Math.round(seg.startX + L * ((i + 0.5) / kinds.length) + rng.int(-160, 160));
+    const dogs = kind === 'walker' ? rng.shuffle(DOG_KINDS.map((_, k) => k)).slice(0, rng.int(3, 4)) : [];
+    return { kind, x: clamp(x, minX + 20, maxX - 20), dir: rng.chance(0.6) ? -1 : 1, dogs, minX, maxX };
+  });
+}
+
+/**
+ * Gente caminando por la zona jugable (rasgo `crowd`): más gente y más
+ * distraída cuanto más difícil es la cuadra. Nunca arrancan sobre un sorete ni
+ * en la salida del nivel.
+ */
+function placeCrowd(layout: LevelLayout, seg: BlockSegment, traits: BarrioTraits, rng: RNG): void {
+  const t = CROWD_TUNING;
+  const L = seg.endX - seg.startX;
+  const d = (seg.difficulty[0] + seg.difficulty[1]) / 2;
+  const density = traits.crowd * lerp(t.densityByDifficulty[0], t.densityByDifficulty[1], d);
+  const spacing = t.spacingAtFull / Math.max(0.05, density);
+  const count = Math.floor(L / spacing);
+  const kinds = (['walker', 'lady', 'tourist'] as NpcKind[]).map((kind) => ({ item: kind, weight: 0.4 + Math.max(0, traits.background[kind]) }));
+  for (let k = 0; k < count; k++) {
+    const x = Math.round(seg.startX + (k + 0.5) * (L / count) + rng.range(-spacing * 0.3, spacing * 0.3));
+    const kind = rng.weighted(kinds);
+    let y = rng.range(t.yMin, t.yMax);
+    for (let tries = 0; tries < 6 && nearObstacle(layout, x, y, 14); tries++) y = rng.range(t.yMin, t.yMax);
+    const speed = lerp(t.speed[0], t.speed[1], rng.next()) * (kind === 'lady' ? 0.8 : 1);
+    const dir: 1 | -1 = rng.chance(0.5) ? 1 : -1;
+    const distracted = rng.chance(lerp(t.distracted[0], t.distracted[1], d));
+    const clear = seg.index === 0 ? LEVEL_GEN.startClear + 80 : 40;
+    if (x < seg.startX + clear || x > seg.endX - 40) continue;
+    layout.crowd.push({ kind, x, y: Math.round(y), dir, speed: Math.round(speed), distracted, minX: seg.startX + 16, maxX: seg.endX - 16 });
+  }
 }
 
 /** Lista de cruces (para pruebas y depuración). */

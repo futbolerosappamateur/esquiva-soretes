@@ -1,6 +1,7 @@
 import { blockLengthFor, CAMPAIGN_TUNING, CROSSING_TUNING, PIXELS_PER_METER, SCORING, SPEED_BONUS, STAR_RULES, WATER_TUNING } from '../config/balance';
 import { lerp } from '../core/math';
-import { getLevel, seedFromString, type BarrioDef, type LevelDef, type LevelRef } from '../data/campaign';
+import { traitsWith, type BarrioTraits } from '../data/barrioTraits';
+import { getBarrio, getLevel, seedFromString, type BarrioDef, type LevelDef, type LevelRef } from '../data/campaign';
 import { getEnvironment, type EnvironmentDef } from '../data/environments';
 import { OBSTACLE_TYPES } from '../entities/obstacles/ObstacleTypes';
 import { generateLevelLayout, type BlockSpec } from './LevelGenerator';
@@ -19,6 +20,7 @@ export interface BuiltLevel {
   level: LevelDef;
   env: EnvironmentDef;
   theme: NeighborhoodTheme;
+  traits: BarrioTraits;
   seed: number;
   layout: LevelLayout;
   stars: StarThresholds;
@@ -27,6 +29,14 @@ export interface BuiltLevel {
 export interface BuildOverrides {
   seed?: number | null;
   environment?: string | null;
+  /** Usa los rasgos de otro barrio (para probarlos en un nivel que ya existe). */
+  traitsFrom?: string | null;
+}
+
+/** Rasgos con los que se arma un nivel del barrio (o los de otro barrio, para probar). */
+export function traitsFor(barrio: BarrioDef, traitsFrom?: string | null): BarrioTraits {
+  const source = traitsFrom ? getBarrio(traitsFrom) : undefined;
+  return traitsWith((source ?? barrio).traits);
 }
 
 /** Cuadras del nivel con su largo y su tramo de dificultad. */
@@ -53,6 +63,7 @@ export function buildLevel(ref: LevelRef, overrides: BuildOverrides = {}): Built
   const env = getEnvironment(overrides.environment ?? level.environment);
   const theme = THEMES[barrio.theme] ?? THEMES['san-telmo'];
   const seed = overrides.seed ?? levelSeed(level);
+  const traits = traitsFor(barrio, overrides.traitsFrom);
   const layout = generateLevelLayout({
     theme,
     env,
@@ -62,8 +73,9 @@ export function buildLevel(ref: LevelRef, overrides: BuildOverrides = {}): Built
     missionBlock: level.missionBlock ?? null,
     missionId: level.missionId,
     waterBlocks: level.waterBlocks,
+    traits,
   });
-  return { ref, barrio, level, env, theme, seed, layout, stars: level.stars ?? starThresholds(layout) };
+  return { ref, barrio, level, env, theme, traits, seed, layout, stars: level.stars ?? starThresholds(layout) };
 }
 
 /**

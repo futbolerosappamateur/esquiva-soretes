@@ -114,8 +114,12 @@ export function migrateSave(raw: unknown): SaveData {
     }
   }
   save.seenCharacters = Array.from(new Set([...STARTER_CHARACTERS, ...strList(raw.seenCharacters)]));
-  // Coherencia: un barrio completo desbloquea el siguiente aunque el dato se haya perdido.
+  // Coherencia: un barrio completo desbloquea el siguiente aunque el dato se haya perdido,
+  // y un barrio donde ya se completó algún nivel nunca queda bloqueado (por ejemplo, si
+  // después se sumó un barrio antes en la campaña).
   for (const b of BARRIOS) {
+    const bp = save.barrios[b.id];
+    if (bp && Object.values(bp.levels).some((l) => l.completed)) bp.unlocked = true;
     if (save.barrios[b.id]?.completed) {
       const next = nextBarrio(b.id);
       if (next) ensureBarrio(save, next.id).unlocked = true;
@@ -274,11 +278,26 @@ export function resetProgress(): SaveData {
 // Perfiles locales (archivo de guardado versión 3)
 // ---------------------------------------------------------------------------
 
+/** Vínculo de un perfil local con un perfil online (el local es su copia en este dispositivo). */
+export interface OnlineLink {
+  profileId: string;
+  accountId: string;
+}
+
 export interface ProfileRecord {
   id: string;
   nickname: string;
   createdAt: string;
   data: SaveData;
+  online?: OnlineLink;
+}
+
+const ID_RE = /^[0-9a-f-]{36}$/i;
+
+export function sanitizeOnlineLink(v: unknown): OnlineLink | undefined {
+  if (!isObj(v) || typeof v.profileId !== 'string' || typeof v.accountId !== 'string') return undefined;
+  if (!ID_RE.test(v.profileId) || !ID_RE.test(v.accountId)) return undefined;
+  return { profileId: v.profileId, accountId: v.accountId };
 }
 
 /** Archivo completo: varios perfiles, cada uno con su propio progreso. */
@@ -326,11 +345,15 @@ export function migrateSaveFile(raw: unknown): SaveFile {
       if (!isObj(p)) continue;
       const id = typeof p.id === 'string' && p.id ? p.id : newProfileId();
       if (profiles.some((x) => x.id === id)) continue;
+      const online = sanitizeOnlineLink(p.online);
+      // Un perfil online tiene una sola copia local.
+      if (online && profiles.some((x) => x.online?.profileId === online.profileId)) continue;
       profiles.push({
         id,
         nickname: sanitizeNickname(p.nickname) || `JUGADOR ${profiles.length + 1}`,
         createdAt: typeof p.createdAt === 'string' ? p.createdAt : new Date().toISOString(),
         data: migrateSave(p.data),
+        ...(online ? { online } : {}),
       });
     }
     if (profiles.length === 0) return createSaveFile();

@@ -11,34 +11,53 @@ import { recordsRepo } from '../core/recordsRepository';
 import { saveStore } from '../core/save';
 import { getLevel, type LevelRef } from '../data/campaign';
 import { getCharacter } from '../data/characters';
+import { uniqueKeyEvents } from '../input/keyEvents';
+import { toSocialError } from '../social/backend';
+import { online } from '../social/onlineSession';
+import type { LeaderboardResult, LeaderboardRow } from '../social/types';
+import { openPublicProfile } from '../social/ui/accountPanel';
+import { isPanelOpen } from '../social/ui/overlay';
 import { Button } from '../ui/Button';
 import { addPanel } from '../ui/Panel';
 import { addText } from '../ui/text';
-import { uniqueKeyEvents } from '../input/keyEvents';
 
 type Tab = 'speed' | 'score' | 'character';
 const TABS: Tab[] = ['speed', 'score', 'character'];
+type Source = 'device' | 'global';
 
 export interface LeaderboardData {
   levelRef: LevelRef;
   mode?: GameMode;
   tab?: Tab;
+  source?: Source;
   /** Escena a la que vuelve (con sus datos). */
   back?: { scene: string; data?: object };
 }
 
+/** Rankings globales ya pedidos (se reutilizan unos segundos para no repetir consultas). */
+const globalCache = new Map<string, { at: number; data: LeaderboardResult }>();
+const CACHE_MS = 30_000;
+
 /**
- * Clasificaciones de un nivel (locales: los récords guardados en este
- * dispositivo). Velocidad de menor a mayor tiempo, puntos de mayor a menor,
- * y el mejor tiempo de cada personaje. Nada precargado: sólo partidas reales.
+ * Clasificaciones de un nivel. Dos fuentes:
+ *  - ESTE DISPOSITIVO: los récords guardados en este navegador (todos los perfiles locales).
+ *  - GLOBAL (modo online): una marca por jugador, sólo partidas verificadas,
+ *    completas y sin ayudas. Tocando un apodo se ve su perfil (y se puede
+ *    reportar o bloquear).
+ * Velocidad de menor a mayor tiempo, puntos de mayor a menor, y el mejor
+ * tiempo de cada personaje. Nada precargado: sólo partidas reales.
  */
 export class LeaderboardScene extends Phaser.Scene {
   private data0!: LeaderboardData;
   private mode: GameMode = 'normal';
   private tab: Tab = 'speed';
+  private source: Source = 'device';
   private rows: Phaser.GameObjects.GameObject[] = [];
   private tabTexts: Phaser.GameObjects.BitmapText[] = [];
   private modeText!: Phaser.GameObjects.BitmapText;
+  private noteText!: Phaser.GameObjects.BitmapText;
+  private sourceBtn!: Button;
+  private requestId = 0;
 
   constructor() {
     super(SCENES.LEADERBOARD);
@@ -48,6 +67,7 @@ export class LeaderboardScene extends Phaser.Scene {
     this.data0 = data;
     this.mode = data.mode ?? 'normal';
     this.tab = data.tab ?? 'speed';
+    this.source = data.source === 'global' && online.configured ? 'global' : 'device';
     this.rows = [];
     this.tabTexts = [];
   }
@@ -72,18 +92,24 @@ export class LeaderboardScene extends Phaser.Scene {
       txt.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.setTab(tab));
       this.tabTexts.push(txt);
     });
-    const modeBtn = new Button(this, cx - 80, GAME_HEIGHT - 16, t.switchMode, { width: 140, height: 17, onClick: () => this.toggleMode() });
+    const modeBtn = new Button(this, cx - 148, GAME_HEIGHT - 16, t.switchMode, { width: 136, height: 17, onClick: () => this.toggleMode() });
     modeBtn.setEnabled(this.timeTrialAvailable);
-    new Button(this, cx + 80, GAME_HEIGHT - 16, t.back, { width: 140, height: 17, onClick: () => this.back() });
-    addText(this, cx, GAME_HEIGHT - 31, t.localNote, { outline: false, color: 0x8a7f96, origin: [0.5, 0] });
+    this.sourceBtn = new Button(this, cx, GAME_HEIGHT - 16, '', { width: 136, height: 17, onClick: () => this.toggleSource() });
+    this.sourceBtn.setEnabled(online.configured);
+    new Button(this, cx + 148, GAME_HEIGHT - 16, t.back, { width: 136, height: 17, onClick: () => this.back() });
+    this.noteText = addText(this, cx, GAME_HEIGHT - 35, '', { outline: false, color: 0x8a7f96, origin: [0.5, 0] });
 
     this.input.keyboard?.on('keydown', uniqueKeyEvents((e: KeyboardEvent) => {
+      if (isPanelOpen()) return;
       const i = TABS.indexOf(this.tab);
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') this.setTab(TABS[(i + 2) % 3]);
       else if (e.code === 'ArrowRight' || e.code === 'KeyD') this.setTab(TABS[(i + 1) % 3]);
       else if (e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'KeyM' || e.code === 'Tab') this.toggleMode();
+      else if (e.code === 'KeyG') this.toggleSource();
       else if (e.code === 'Escape' || e.code === 'Backspace' || e.code === 'Enter') this.back();
     }));
+    // Respuestas que lleguen después de salir de la escena se descartan.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.requestId++);
     this.render();
   }
 
@@ -101,29 +127,57 @@ export class LeaderboardScene extends Phaser.Scene {
     this.render();
   }
 
-  private render(): void {
-    const t = TEXTS2.ranking;
+  private toggleSource(): void {
+    if (!online.configured) return;
+    this.source = this.source === 'device' ? 'global' : 'device';
+    audio.play('click');
+    this.render();
+  }
+
+  private clearRows(): void {
     this.rows.forEach((o) => o.destroy());
     this.rows = [];
+  }
+
+  private render(): void {
+    const t = TEXTS2.ranking;
+    const o = TEXTS2.online;
+    this.clearRows();
+    this.requestId++;
     this.tabTexts.forEach((txt, i) => txt.setTint(TABS[i] === this.tab ? UI_COLORS.yellow : UI_COLORS.gray));
-    this.modeText.setText(`${t.mode}: ${this.mode === 'normal' ? 'NORMAL' : TEXTS2.hud.timeTrial}`);
+    const sourceName = this.source === 'global' ? o.source.global : o.source.device;
+    this.modeText.setText(`${t.mode}: ${this.mode === 'normal' ? 'NORMAL' : TEXTS2.hud.timeTrial} · ${sourceName}`);
+    this.sourceBtn.setText(`${o.see}: ${this.source === 'global' ? 'DISPOSITIVO' : o.source.global}`);
     const found = getLevel(this.data0.levelRef);
     if (!found) return;
-    const id = found.level.id;
-    const me = saveStore.activeProfile().id;
-    let list: RecordEntry[];
-    if (this.tab === 'speed') list = recordsRepo.speedRanking(id, this.mode);
-    else if (this.tab === 'score') list = recordsRepo.scoreRanking(id, this.mode);
-    else list = recordsRepo.bestByCharacter(id, this.mode);
+    if (this.source === 'global') this.renderGlobal(found.level.id);
+    else this.renderDevice(found.level.id);
+  }
+
+  private header(): void {
+    const t = TEXTS2.ranking;
     const header = this.tab === 'score' ? t.headerScore : t.headerTime;
     const hx = [44, 70, 170, GAME_WIDTH - 44];
     this.rows.push(addText(this, hx[1], 60, t.player, { outline: false, color: UI_COLORS.gray }));
     this.rows.push(addText(this, hx[2], 60, t.character, { outline: false, color: UI_COLORS.gray }));
     this.rows.push(addText(this, hx[3], 60, header, { outline: false, color: UI_COLORS.gray, origin: [1, 0] }));
-    if (list.length === 0) {
-      this.rows.push(addText(this, GAME_WIDTH / 2, 120, t.empty, { color: UI_COLORS.cream, origin: [0.5, 0], align: 'center', maxWidth: 360 }));
-      return;
-    }
+  }
+
+  private message(text: string): void {
+    this.rows.push(addText(this, GAME_WIDTH / 2, 120, text, { color: UI_COLORS.cream, origin: [0.5, 0], align: 'center', maxWidth: 360 }));
+  }
+
+  private renderDevice(id: string): void {
+    const t = TEXTS2.ranking;
+    this.noteText.setText(t.localNote);
+    const me = saveStore.activeProfile().id;
+    let list: RecordEntry[];
+    if (this.tab === 'speed') list = recordsRepo.speedRanking(id, this.mode);
+    else if (this.tab === 'score') list = recordsRepo.scoreRanking(id, this.mode);
+    else list = recordsRepo.bestByCharacter(id, this.mode);
+    this.header();
+    if (list.length === 0) return this.message(t.empty);
+    const hx = [44, 70, 170, GAME_WIDTH - 44];
     list.forEach((e, i) => {
       const y = 72 + i * 14;
       const mine = e.profileId === me;
@@ -138,6 +192,64 @@ export class LeaderboardScene extends Phaser.Scene {
     if (this.tab === 'score' && list.some((e) => e.assisted)) {
       this.rows.push(addText(this, GAME_WIDTH / 2, 72 + list.length * 14 + 2, t.assistedNote, { outline: false, color: UI_COLORS.gray, origin: [0.5, 0] }));
     }
+  }
+
+  private renderGlobal(id: string): void {
+    const o = TEXTS2.online;
+    this.noteText.setText(o.globalNote);
+    const key = `${id}|${this.mode}|${this.tab}|${online.viewerProfileId() ?? ''}`;
+    const hit = globalCache.get(key);
+    if (hit && Date.now() - hit.at < CACHE_MS) return this.drawGlobal(hit.data);
+    this.message(o.loading);
+    const req = this.requestId;
+    online.leaderboard(id, this.mode, this.tab).then(
+      (data) => {
+        globalCache.set(key, { at: Date.now(), data });
+        if (req !== this.requestId) return;
+        this.clearRows();
+        this.drawGlobal(data);
+      },
+      (err) => {
+        if (req !== this.requestId) return;
+        this.clearRows();
+        const code = toSocialError(err).code;
+        this.message(code === 'disabled' ? o.notConfigured : o.noConnection);
+      },
+    );
+  }
+
+  private drawGlobal(data: LeaderboardResult): void {
+    const o = TEXTS2.online;
+    this.header();
+    if (data.rows.length === 0) return this.message(o.globalEmpty);
+    const hx = [44, 70, 170, GAME_WIDTH - 44];
+    const value = (r: LeaderboardRow) => (this.tab === 'score' ? formatThousands(r.score) : formatTime(r.timeMs));
+    data.rows.forEach((r, i) => {
+      const y = 72 + i * 14;
+      const color = r.rank === 1 ? UI_COLORS.yellow : r.isMe ? UI_COLORS.celeste : UI_COLORS.white;
+      this.rows.push(addText(this, hx[0], y, `${r.rank}.`, { color, origin: [1, 0] }));
+      const name = addText(this, hx[1], y, r.nickname, { color }).setInteractive({ useHandCursor: true });
+      name.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.openProfile(r.profileId));
+      this.rows.push(name);
+      this.rows.push(addText(this, hx[2], y, getCharacter(r.characterId).name, { outline: false, color: r.isMe ? UI_COLORS.celeste : UI_COLORS.cream }));
+      this.rows.push(addText(this, hx[3], y, value(r), { color, origin: [1, 0] }));
+    });
+    let y = 72 + data.rows.length * 14 + 2;
+    if (data.me && !data.rows.some((r) => r.isMe)) {
+      this.rows.push(addText(this, GAME_WIDTH / 2, y, `${o.myRank}: ${data.me.rank} · ${value(data.me)}`, { color: UI_COLORS.celeste, origin: [0.5, 0] }));
+      y += 12;
+    }
+    this.rows.push(addText(this, GAME_WIDTH / 2, Math.max(y, 214), o.tapHint, { outline: false, color: UI_COLORS.gray, origin: [0.5, 0] }));
+  }
+
+  private openProfile(profileId: string): void {
+    if (isPanelOpen()) return;
+    audio.play('click');
+    // Al cerrar se vuelve a pedir el ranking (por si bloqueó a alguien).
+    openPublicProfile(profileId, () => {
+      globalCache.clear();
+      if (this.scene.isActive()) this.render();
+    });
   }
 
   private back(): void {

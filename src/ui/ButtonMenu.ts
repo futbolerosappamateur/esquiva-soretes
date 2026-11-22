@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { TEX, UI_FRAMES } from '../graphics/keys';
+import { TEX } from '../graphics/keys';
+import { fitToTexture } from '../graphics/renderScale';
 import type { Button } from './Button';
 import { uniqueKeyEvents } from '../input/keyEvents';
 
@@ -31,8 +32,7 @@ export class ButtonMenu {
     private readonly items: MenuItem[],
     private readonly opts: MenuOptions = {},
   ) {
-    this.cursor = scene.add
-      .image(0, 0, TEX.ui, UI_FRAMES.cursor)
+    this.cursor = fitToTexture(scene.add.image(0, 0, TEX.cursor))
       .setDepth((opts.depth ?? 0) + 1)
       .setScrollFactor(0);
     scene.tweens.add({ targets: this.cursor, x: '+=3', duration: 320, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH } from '../config/constants';
+import { GAME_WIDTH } from '../config/constants';
 import { clamp } from '../core/math';
 
 /**
@@ -18,7 +18,6 @@ export class CameraController {
     private readonly worldWidth: number,
     startScroll = 0,
   ) {
-    cam.setBounds(0, 0, worldWidth, GAME_HEIGHT);
     this.scroll = clamp(startScroll, 0, Math.max(0, worldWidth - GAME_WIDTH));
     cam.setScroll(Math.round(this.scroll), 0);
   }

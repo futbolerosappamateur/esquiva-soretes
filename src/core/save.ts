@@ -1,4 +1,14 @@
-import { createDefaultSave, createProfile, MAX_PROFILES, migrateSaveFile, sanitizeNickname, type ProfileRecord, type SaveData, type SaveFile } from './progress';
+import {
+  createDefaultSave,
+  createProfile,
+  MAX_PROFILES,
+  migrateSaveFile,
+  sanitizeNickname,
+  type OnlineLink,
+  type ProfileRecord,
+  type SaveData,
+  type SaveFile,
+} from './progress';
 import { loadRaw, saveJSON } from './storage';
 
 const KEY = 'save';
@@ -48,13 +58,61 @@ export class SaveStore {
 
   // --- Perfiles -----------------------------------------------------------
 
-  activeProfile(): Readonly<{ id: string; nickname: string; createdAt: string }> {
+  activeProfile(): Readonly<{ id: string; nickname: string; createdAt: string; online: OnlineLink | null }> {
     const p = this.active;
-    return { id: p.id, nickname: p.nickname, createdAt: p.createdAt };
+    return { id: p.id, nickname: p.nickname, createdAt: p.createdAt, online: p.online ? { ...p.online } : null };
   }
 
-  profiles(): { id: string; nickname: string; createdAt: string; data: Readonly<SaveData> }[] {
-    return this.file.profiles.map((p) => ({ id: p.id, nickname: p.nickname, createdAt: p.createdAt, data: p.data }));
+  profiles(): { id: string; nickname: string; createdAt: string; data: Readonly<SaveData>; online: OnlineLink | null }[] {
+    return this.file.profiles.map((p) => ({ id: p.id, nickname: p.nickname, createdAt: p.createdAt, data: p.data, online: p.online ? { ...p.online } : null }));
+  }
+
+  // --- Perfiles online (copias locales) -----------------------------------
+
+  /** Id del perfil local vinculado a un perfil online (o null). */
+  findByOnline(onlineProfileId: string): string | null {
+    return this.file.profiles.find((p) => p.online?.profileId === onlineProfileId)?.id ?? null;
+  }
+
+  /**
+   * Crea la copia local de un perfil online (o devuelve la que ya existe).
+   * Devuelve null si no hay lugar para otro perfil en este dispositivo.
+   */
+  createLinkedProfile(nickname: string, link: OnlineLink, data: SaveData): string | null {
+    const existing = this.findByOnline(link.profileId);
+    if (existing) return existing;
+    if (!this.canCreateProfile()) return null;
+    const p = createProfile(sanitizeNickname(nickname) || 'JUGADOR', data);
+    p.online = { ...link };
+    this.file.profiles.push(p);
+    this.persist();
+    return p.id;
+  }
+
+  /** Vincula (o desvincula, con null) un perfil local existente. */
+  linkProfile(localId: string, link: OnlineLink | null): boolean {
+    const p = this.file.profiles.find((x) => x.id === localId);
+    if (!p) return false;
+    if (link) {
+      for (const other of this.file.profiles) if (other !== p && other.online?.profileId === link.profileId) delete other.online;
+      p.online = { ...link };
+    } else {
+      delete p.online;
+    }
+    this.persist();
+    this.notify();
+    return true;
+  }
+
+  /** Reemplaza el progreso de un perfil (al sincronizar con el servidor). */
+  replaceProfileData(localId: string, data: SaveData, nickname?: string): boolean {
+    const p = this.file.profiles.find((x) => x.id === localId);
+    if (!p) return false;
+    p.data = data;
+    if (nickname) p.nickname = sanitizeNickname(nickname) || p.nickname;
+    this.persist();
+    if (p === this.active) this.notify();
+    return true;
   }
 
   canCreateProfile(): boolean {

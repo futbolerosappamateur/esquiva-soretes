@@ -8,6 +8,36 @@ esquina con las zapatillas limpias.
 
 Idea original de mi hija. Hecho con **Phaser 3**, **TypeScript** y **Vite**.
 
+## Modo online (en preparación)
+
+Cuentas, perfiles en la nube y **rankings globales** con Supabase. **Sin configurarlo, el juego
+funciona como siempre en modo local** (el menú dice `MODO LOCAL`). Guía completa, paso a paso:
+**[docs/ONLINE.md](docs/ONLINE.md)**.
+
+El rumbo del juego (dominio, cuentas con Google y Facebook, publicidad, puntos y tienda, barrios)
+está en **[docs/PLAN.md](docs/PLAN.md)**.
+
+- **Cuentas** con correo y contraseña, creadas por un adulto. Cada cuenta tiene hasta 6
+  **perfiles de jugador**: el propio y **perfiles supervisados** para chicos (sin correo propio,
+  privados, fuera de los rankings y sin funciones sociales hasta que el adulto las habilite).
+- **Perfil público**: apodo único, avatar (personajes del juego, nada de fotos), personaje
+  favorito, estadísticas, insignias y privacidad (público, sólo amigos o privado).
+- **Progreso guardado en la nube** y sincronizado: se puede jugar sin conexión y las partidas se
+  mandan solas cuando vuelve. **Historial de partidas** y **récords personales**.
+- **Rankings globales** por nivel: menor tiempo, mayor puntaje y mejor marca de cada personaje.
+  Sólo partidas **verificadas por el servidor, completas y sin ayudas**. En el juego:
+  RANKING → **VER: GLOBAL** (o la tecla **G**). Tocando un apodo se ve su ficha y se puede
+  **reportar** o **bloquear**.
+- **Seguridad:** el juego nunca escribe la base directamente; funciones del servidor validan cada
+  partida (tiempo, puntaje, progresión y eventos), con Row Level Security en todas las tablas.
+  Nunca va una clave secreta en el juego.
+- **Importación:** el progreso de un perfil local se puede pasar una vez a un perfil online; queda
+  como "no verificado" (cuenta para la campaña y los récords personales, no para los rankings).
+- Preparado en el servidor para la etapa 2 (**amigos**, rankings entre amigos y **desafíos**).
+
+Para verlo sin crear nada: `npm run online:sandbox` y, en otra terminal, `npm run dev:sandbox`
+(abre un servidor online de **prueba** local en http://localhost:5174).
+
 ## Novedades de la versión 0.3
 
 - **Personajes con poderes.** Cada uno tiene un poder (tecla **E** o botón redondo en el celular),
@@ -70,8 +100,12 @@ Idea original de mi hija. Hecho con **Phaser 3**, **TypeScript** y **Vite**.
 | Saltar | Espacio, X o K | Tocar la mitad derecha |
 | Poder especial | E | Botón redondo (arriba del salto) |
 | Reintentar (contrarreloj) | R | — |
+| Ranking: global / este dispositivo | G | Botón VER |
 | Pausa | Esc o P | Botón ❚❚ |
 
+- **Si al moverte en diagonal no salta con Espacio**, es el teclado, no el juego: muchos teclados de
+  notebook no registran la barra espaciadora con dos flechas apretadas ("ghosting"). Saltá con **X**
+  (o J o K). El juego lo avisa la primera vez que caminás en diagonal.
 - Pisar un sorete ensucia una de tus **3 zapatillas**. Con las tres sucias: game over.
 - La **baldosa floja** te salpica y resta 100 puntos.
 - El **sorete gigante** se rodea, o se salta *corriendo*. El **camuflado** se esconde entre las hojas.
@@ -100,6 +134,11 @@ npm test           # pruebas automáticas de la lógica (Vitest)
 npm run build      # chequeo de TypeScript + build de producción en dist/
 npm run preview    # sirve el build de producción en http://localhost:4173
 npm run typecheck  # sólo el chequeo de TypeScript
+
+# Modo online (ver docs/ONLINE.md)
+npm run online:sandbox  # servidor online de PRUEBA local (cuentas y rankings, sin Supabase)
+npm run dev:sandbox     # el juego usando ese servidor, en http://localhost:5174
+npm run online:rules    # regenera la migración de reglas si cambian niveles o personajes
 ```
 
 **Probar en el celular:** con `npm run dev`, la consola muestra una dirección `Network`
@@ -114,8 +153,16 @@ y poné el teléfono en horizontal.
 - `?block=3` empieza en la esquina anterior a la cuadra 3.
 - `?env=night` fuerza una ambientación (`day`, `night`, `autumn`, `winter`, `spring`, `summer`, `rain`).
 - `?seed=1234` cambia la semilla del nivel (por defecto cada nivel es siempre igual).
+- `?hora=19:30` (o `?hora=real`) prueba la luz según la hora: un filtro de color que sigue al sol
+  de Buenos Aires según la estación; de noche usa la ambientación de noche. No cuenta para los
+  rankings.
+- `?rasgos=villa-lugano` arma el nivel con los rasgos de otro barrio (gente, árboles, vereda rota,
+  palomas): sirve para probar un barrio que todavía no tiene niveles. Esa partida no cuenta para los
+  rankings.
 - `?unlockall` desbloquea todos los barrios jugables y todos los personajes (modifica el progreso
   guardado del perfil activo).
+- `?scale=N` (de 1 a 8, admite decimales) fija la resolución interna: `?scale=1` es la original
+  de 480×270 y `?scale=4`, 1920×1080 (ver "Resolución" más abajo).
 
 Los atajos que cambian el nivel o la posición (`?seed`, `?env`, `?block`) marcan la partida como
 asistida: no entra al ranking de velocidad.
@@ -123,6 +170,26 @@ asistida: no entra al ranking de velocidad.
 Se pueden combinar: `http://localhost:5173/?debug&level=monserrat-1&block=2&env=night`
 
 ## Cómo está hecho
+
+### Resolución
+
+El juego se diseña en **480×270**: posiciones, tamaños, textos y cuentas usan esas unidades. Pero se
+**dibuja con la resolución de la pantalla**: el lienzo tiene tantos píxeles como la zona donde se ve
+(en una pantalla de 1920×1080, 4 píxeles por unidad), así nada se estira y las letras y los dibujos
+definitivos se ven nítidos en una pantalla grande. Si cambia el tamaño de la ventana o se pasa a
+pantalla completa, cambia la resolución y el diseño sigue igual. Todas las cámaras tienen zoom igual a
+la escala, desde la esquina (`src/graphics/renderScale.ts`).
+
+- **Topes:** 2880×1620 con placa de video aparte, 1920×1080 con placa integrada (medido en una
+  Intel Iris Xe: 60 cuadros por segundo a 1920×1080, 33 a 2560×1440) y 1440×810 en celulares.
+- **Control de fluidez:** si durante la partida el juego va a menos de 50 cuadros por segundo, baja la
+  resolución lo necesario (nunca por debajo de 960×540).
+- **Sin placa de video** (dibujo por software) se usa la resolución original, 480×270.
+- **Letras:** Geologica SemiBold (`src/assets/fonts/`), dibujada a la resolución actual con las
+  mismas medidas que tenía la fuente pixelada (`src/graphics/BitmapFontBuilder.ts`). La fuente
+  pixelada (`fontData.ts`) se sigue usando para los carteles dibujados en el mundo.
+- **Paneles, botones, logo y mascota** se dibujan con formas suaves y con el detalle de la pantalla
+  completa (`uiTextures.ts`); el resto de los gráficos provisionales sigue en pixel art, nítido.
 
 ### Perspectiva 2.5D
 
@@ -165,9 +232,12 @@ claramente marcado como tal.
   personaje, tiempo, puntaje, fecha, zapatillas, si fue asistida). Los puntajes por nivel de la
   v0.2 se importan una sola vez como récords de puntuación (sin tiempo).
 - `esquivaSoretes:records` y `esquivaSoretes:settings` — los de la v0.1, intactos.
-- Los récords pasan por `RecordsRepository` (`src/core/recordsRepository.ts`): hoy guarda en
-  LocalStorage; para un ranking compartido se puede sumar otra implementación (por ejemplo,
-  Supabase) que valide cada resultado en el servidor.
+- Los récords del dispositivo pasan por `RecordsRepository` (`src/core/recordsRepository.ts`) y
+  siguen en LocalStorage. Los rankings globales son otra fuente (modo online, validados en el
+  servidor): ver [docs/ONLINE.md](docs/ONLINE.md).
+- Modo online: un perfil local puede ser la **copia** de un perfil online (`online` en el perfil);
+  el servidor manda y reemplaza esa copia al sincronizar. `esquivaSoretes:outbox` guarda las
+  partidas que esperan conexión y `esquivaSoretes:auth` la sesión de Supabase.
 - "Reiniciar progreso" en Opciones (con confirmación) borra la campaña, las monedas y los
   personajes, pero conserva récords y opciones.
 
@@ -201,10 +271,19 @@ src/
     crossing/             semáforo, tránsito, lógica y vista de los cruces
     map/                  GeoJSON, proyección, rasterizado y dibujo del mapa
   scenes/                 Boot, Menú, Mapa, Barrio, Personaje, Juego, HUD, Pausa, Resultados...
+  social/                 modo online: sesión, cola de partidas, reglas de apodos, avatares
+    rules/                reglas del juego que se exportan al servidor
+    ui/                   panel HTML de la cuenta (formularios, perfiles, historial, ficha pública)
   debug/                  overlay de depuración y parámetros de URL
+supabase/migrations/      esquema, seguridad (RLS) y funciones del servidor; reglas generadas
+docs/ONLINE.md            guía del modo online (configuración, seguridad, privacidad, moderación)
+docs/PLAN.md              rumbo acordado y orden de trabajo
 tests/                    pruebas de Vitest (salto, teclado, cruces, niveles, guardado, mapa, poderes,
-                          cronómetro y récords, perfiles y logros, vecinas y perro perdido)
-scripts/                  test.mjs (lanzador de pruebas) y build-geo.mjs (datos del mapa)
+                          cronómetro y récords, perfiles y logros, vecinas y perro perdido,
+                          rasgos de barrio y gente caminando)
+  social/                 base de datos online (PostgreSQL real con PGlite) y cliente online
+scripts/                  test.mjs (lanzador de pruebas), build-geo.mjs (datos del mapa),
+                          online-rules.mjs (reglas del servidor) y online-sandbox/ (servidor de prueba)
 ```
 
 ## Cómo extenderlo
@@ -213,6 +292,9 @@ scripts/                  test.mjs (lanzador de pruebas) y build-geo.mjs (datos 
   tránsito, estrellas, monedas).
 - **Nuevo nivel o barrio:** `src/data/campaign.ts`. Cada nivel enumera sus calles, ambientación y
   dificultad; el generador hace el resto. El orden de los 48 barrios es configurable.
+- **Personalidad de un barrio:** sus `traits` en `src/data/campaign.ts` (gente caminando por la
+  vereda, árboles, estado de la vereda, palomas y peatones del fondo; ver
+  `src/data/barrioTraits.ts`). Con los valores por defecto los niveles no cambian.
 - **Ambientación:** `src/data/environments.ts`.
 - **Vehículos:** `src/data/vehicles.ts`. **Personajes:** `src/data/characters.ts` + un look en
   `src/graphics/characterLooks.ts`. **NPC:** `src/data/npcs.ts` (se arman combinando
@@ -223,10 +305,23 @@ scripts/                  test.mjs (lanzador de pruebas) y build-geo.mjs (datos 
   las animaciones con los mismos nombres de cuadro (`ANIMATION_FRAMES` en `src/data/characters.ts`);
   las ideas para cada uno (el portero revisando la suela, la vieja lavándose las zapatillas...) están
   anotadas en el campo `animations` de cada personaje.
+- **Dibujos de personajes:** las ilustraciones originales van en `art/source/` (una imagen por
+  animación) y se convierten con `npm run sprites -- scripts/sprites/<look>.json` (limpia el fondo,
+  recorta cada dibujo, lo achica conservando el sombreado, apoya los pies y arma las versiones con
+  zapatillas sucias, en dos tamaños según la pantalla). Cómo pedir las imágenes y cómo
+  configurarlas: [art/README.md](art/README.md).
+- **Estética definitiva:** plastilina, con los fondos de frente. Las referencias, las capas del
+  fondo con sus medidas (`art/guia-capas-fondo.png`) y cómo pedir cada pieza están en
+  [art/README.md](art/README.md).
 
 ## Elementos provisionales
 
-- Todos los gráficos son pixel art **generado por código** (originales, sin recursos de terceros).
+- Los gráficos del mundo, los íconos y los personajes son pixel art **generado por código**
+  (originales, sin recursos de terceros), salvo **El Pibe de la Gorra**, que ya tiene su dibujo
+  definitivo, de plastilina (`art/source/pibe-plastilina-*.png`): 30 poses (caminar, correr, saltar,
+  su poder y pisar un sorete) en alta resolución y su retrato en la selección de personaje. Los
+  fondos de plastilina todavía no llegaron: cuando lleguen, el motor tiene que aprender a cargar
+  fondos en alta resolución (hoy sólo lo hace con los personajes y los menús).
 - Efectos de sonido y música **sintetizados** con Web Audio API.
 - Monserrat usa las fachadas de San Telmo y un recorrido provisional.
 - Los personajes nuevos usan el mismo esqueleto pixelado con otra ropa y un objeto (escoba,
@@ -238,6 +333,9 @@ scripts/                  test.mjs (lanzador de pruebas) y build-geo.mjs (datos 
 ## Créditos
 
 Idea: mi hija. Motor: [Phaser 3](https://phaser.io). Todo el arte y el audio son originales.
+
+Letra: [Geologica](https://github.com/googlefonts/geologica) (SemiBold), de The Geologica Project
+Authors, licencia [SIL Open Font License 1.1](https://openfontlicense.org) (ver `src/assets/fonts/LICENSE.md`).
 
 Límites de los barrios: dataset **Barrios**, [Buenos Aires Data](https://data.buenosaires.gob.ar/dataset/barrios),
 Gobierno de la Ciudad de Buenos Aires, licencia

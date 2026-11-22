@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { COIN_TUNING, CROSSING_TUNING, EFFECTS_TUNING, PLAYER_TUNING, RECORD_RULES, SCORING, SPEED_BONUS, WATER_TUNING } from '../config/balance';
+import { COIN_TUNING, CROSSING_TUNING, CROWD_TUNING, EFFECTS_TUNING, PLAYER_TUNING, RECORD_RULES, SCORING, SPEED_BONUS, WATER_TUNING } from '../config/balance';
 import { GAME_WIDTH, LAYOUT, SCENES } from '../config/constants';
 import { UI_COLORS } from '../config/palette';
 import { PHRASES, TEXTS2 } from '../config/texts';
 import { addPending, bankAchievements, checkCharacterUnlocks } from '../core/achievementsLogic';
+import type { AchievementCounts } from '../data/achievements';
+import { online } from '../social/onlineSession';
 import { LevelClock } from '../core/LevelClock';
 import type { GameMode, RecordEntry } from '../core/leaderboard';
 import { clamp } from '../core/math';
@@ -14,21 +16,25 @@ import { recordsRepo } from '../core/recordsRepository';
 import { pickRandom } from '../core/rng';
 import { createRun, takeUnbankedCoins, type Checkpoint, type LifeMark, type RunState } from '../core/RunState';
 import { saveStore } from '../core/save';
+import { settings } from '../core/settings';
 import type { LevelRef } from '../data/campaign';
 import { getCharacter, isPlayable, type CharacterDef } from '../data/characters';
 import { missionFirstKey, type MissionDef } from '../data/missions';
 import { DebugOverlay, debugFlags } from '../debug/DebugOverlay';
 import { CompanionDogs } from '../entities/Companions';
 import type { Obstacle } from '../entities/obstacles/Obstacle';
+import { variantOf } from '../entities/obstacles/ObstacleTypes';
 import { ObstacleManager, type ObstacleEvents } from '../entities/obstacles/ObstacleManager';
 import { Player } from '../entities/Player';
 import { applyPlayerCharacter } from '../graphics/characterTextures';
+import { applyDaylight, parseHourParam } from '../graphics/daylight';
 import { TEX } from '../graphics/keys';
 import { InputController } from '../input/InputController';
 import type { NpcEvent } from '../npc/NpcActor';
 import { NpcSystem } from '../npc/NpcSystem';
 import { AbilityRuntime, type AbilityHud } from '../systems/AbilityRuntime';
 import { CameraController } from '../systems/CameraController';
+import { CrowdSystem } from '../systems/CrowdSystem';
 import { footprintsOverlap, type Footprint } from '../systems/Collision';
 import { EffectsSystem, type FlySwarm } from '../systems/EffectsSystem';
 import { CoinSystem, MissionSystem } from '../systems/PickupSystems';
@@ -76,6 +82,18 @@ export interface HudInit {
   /** Mejor tiempo personal (para mostrar al lado del cronómetro). */
   bestTimeMs: number | null;
 }
+
+/** Totales de un intento (lo que se acreditó al perfil durante esta partida). */
+export interface AttemptTotals {
+  dodged: number;
+  crossings: number;
+  carHits: number;
+  missions: number;
+  coinsBanked: number;
+  achievements: AchievementCounts;
+}
+
+const emptyAttempt = (): AttemptTotals => ({ dodged: 0, crossings: 0, carHits: 0, missions: 0, coinsBanked: 0, achievements: {} });
 
 /** Lo que reciben las pantallas de resultados y de game over. */
 export interface LevelResult {
@@ -133,6 +151,16 @@ export interface LevelResult {
   newLevelScoreRecord: boolean;
   /** Puesto en el ranking de velocidad del nivel (1 = el más rápido), o null. */
   speedRank: number | null;
+  // --- modo online ---
+  /** Por qué la partida es asistida (retomó desde una esquina, atajos de prueba). */
+  assistReasons: ('checkpoint' | 'debug')[];
+  /** Cuadra desde la que arrancó este intento (0 = desde el principio). */
+  startBlock: number;
+  closeCalls: number;
+  /** Lo que sumó este intento (al retomar desde una esquina no se repite lo anterior). */
+  attempt: AttemptTotals;
+  /** Id de la partida en la cola online (null en modo local). */
+  onlineRunId: string | null;
   shoesLeft: number;
   missionsDone: number;
   unlockedCharacters: string[];
@@ -169,6 +197,7 @@ export class GameScene extends Phaser.Scene {
   private mission!: MissionSystem;
   private npcs!: NpcSystem;
   private water!: WaterJetSystem;
+  private crowd!: CrowdSystem;
   private dogs?: CompanionDogs;
   private solids: Solid[] = [];
   private leafPiles: DecalPlacement[] = [];
@@ -189,6 +218,9 @@ export class GameScene extends Phaser.Scene {
   private bestSplits: number[] | null = null;
   private unlockedThisRun: string[] = [];
   private abilityWasReady = true;
+  private attempt: AttemptTotals = emptyAttempt();
+  private diagonalTime = 0;
+  private startBlock = 0;
 
   private readonly obstacleEvents: ObstacleEvents = {
     onHazard: (o) => this.handleHazard(o),
@@ -216,13 +248,21 @@ export class GameScene extends Phaser.Scene {
     this.dogs = undefined;
     this.unlockedThisRun = [];
     this.abilityWasReady = true;
+    this.attempt = emptyAttempt();
     this.clock = new LevelClock();
     // Atajos de depuración que cambian el nivel o la posición: la partida no cuenta para los rankings.
-    this.debugTainted = debugFlags.seed !== null || debugFlags.env !== null || (debugFlags.block !== null && debugFlags.block > 0);
+    this.debugTainted =
+      debugFlags.seed !== null || debugFlags.env !== null || debugFlags.traits !== null || debugFlags.hour !== null || (debugFlags.block !== null && debugFlags.block > 0);
   }
 
   create(): void {
-    this.built = buildLevel(this.run.levelRef, { seed: debugFlags.seed ?? this.run.seed, environment: debugFlags.env });
+    // Prototipo de luz según la hora (?hora=): de noche se juega con la ambientación de noche.
+    const daylight = parseHourParam(debugFlags.hour);
+    this.built = buildLevel(this.run.levelRef, {
+      seed: debugFlags.seed ?? this.run.seed,
+      environment: debugFlags.env ?? (daylight?.night ? 'night' : null),
+      traitsFrom: debugFlags.traits,
+    });
     this.layout = this.built.layout;
     // La contrarreloj sólo existe en niveles ya completados en modo normal.
     if (this.run.mode === 'timeTrial' && !isTimeTrialUnlocked(saveStore.get(), this.built.level.id)) this.run.mode = 'normal';
@@ -231,6 +271,7 @@ export class GameScene extends Phaser.Scene {
     this.applyDebugStart();
     const cp = this.run.checkpoint;
     this.blockIndex = cp ? Math.min(cp.blocksCompleted, layout.blocks.length - 1) : 0;
+    this.startBlock = this.blockIndex;
     const startX = cp ? cp.x : layout.startX;
     const startY = cp ? cp.y : layout.startY;
 
@@ -241,6 +282,7 @@ export class GameScene extends Phaser.Scene {
     this.run.characterId = character.id;
     applyPlayerCharacter(this, character.id);
     this.cameras.main.setBackgroundColor(this.built.theme.skyColor);
+    if (daylight) applyDaylight(this.cameras.main, daylight.light);
 
     this.world = new WorldView(this, layout, { env });
     this.world.onPigeonScared = () => audio.play('flap');
@@ -275,6 +317,20 @@ export class GameScene extends Phaser.Scene {
         if (Math.abs(x - this.player.x) < GAME_WIDTH * 0.6) audio.play('water');
       },
     });
+    // La gente que camina por la vereda esquiva los soretes, las baldosas flojas y los árboles.
+    const crowdBlockers = [
+      ...layout.obstacles.map((o) => ({ x: o.x, y: o.y, fp: variantOf(o.type, o.variant).footprint })),
+      ...this.solids.map((s) => ({ x: s.x, y: s.y, fp: s.fp })),
+    ];
+    this.crowd = new CrowdSystem(this, layout.crowd, crowdBlockers, env.actorTint, {
+      onBump: () => this.onCrowdBump(),
+    });
+    // Primer nivel de un barrio con mucha gente: un aviso apenas se empieza a caminar.
+    if (this.built.traits.crowd >= 0.3 && this.run.levelRef.levelIndex === 0 && !cp) {
+      this.time.delayedCall(4200, () => {
+        if (this.mode === 'playing') this.showPhrase(TEXTS2.game.crowdTip, UI_COLORS.orange, true);
+      });
+    }
 
     this.player = new Player(
       this,
@@ -396,6 +452,7 @@ export class GameScene extends Phaser.Scene {
     this.mission.destroy();
     this.npcs.destroy();
     this.water.destroy();
+    this.crowd.destroy();
     this.debugOverlay?.destroy();
     this.debugOverlay = undefined;
   }
@@ -449,6 +506,7 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     const dt = Math.min(delta, 50) / 1000;
     this.controls.update(dt);
+    this.diagonalTip(dt);
     const inPlay = this.mode === 'playing' || this.mode === 'stepped' || this.mode === 'scared';
     // El cronómetro arranca con el primer cuadro en que se tiene el control.
     if (inPlay && !this.clock.running && !this.clock.finished) this.clock.start();
@@ -502,6 +560,7 @@ export class GameScene extends Phaser.Scene {
       this.cameraCtl.left,
       this.cameraCtl.right,
     );
+    this.crowd.update(dt, { x: p.x, y: p.y, footprint: p.footprint }, this.mode === 'playing' && p.canBeHit, this.cameraCtl.left, this.cameraCtl.right);
 
     const lookAhead = zoneCtl && !zoneCtl.completed ? zoneCtl.geo.x0 + CROSSING_TUNING.width / 2 - GAME_WIDTH / 2 + 24 : null;
     this.cameraCtl.update(dt, this.player.x, lookAhead);
@@ -623,7 +682,13 @@ export class GameScene extends Phaser.Scene {
    * todavía no guardados, y desbloquea los personajes cuyo desafío se cumplió.
    */
   private bankProgress(extraCoins = 0): void {
-    const coins = takeUnbankedCoins(this.run) + extraCoins;
+    const banked = takeUnbankedCoins(this.run);
+    const coins = banked + extraCoins;
+    // Lo que acredita este intento (las monedas por estrellas las calcula el servidor).
+    this.attempt.coinsBanked += banked;
+    for (const [id, n] of Object.entries(this.run.achievements) as [keyof AchievementCounts, number][]) {
+      if (n > 0) this.attempt.achievements[id] = (this.attempt.achievements[id] ?? 0) + n;
+    }
     const firstKey = this.run.missionFirstPending;
     this.run.missionFirstPending = null;
     const unlocked = saveStore.update((s) => {
@@ -659,6 +724,7 @@ export class GameScene extends Phaser.Scene {
     if (ev.hit) this.handleCarHit(ev.hit, ctl);
     if (ev.crossed) {
       this.run.crossingsDone++;
+      this.attempt.crossings++;
       saveStore.update((s) => void s.stats.crossings++);
       if (ev.crossed.green && ev.crossed.clean) addPending(this.run.achievements, 'safeCrossings');
       let bonus = 0;
@@ -682,6 +748,7 @@ export class GameScene extends Phaser.Scene {
     this.run.lives = Math.max(0, this.run.lives - 1);
     this.run.lifeMarks.push('car');
     this.run.carHits++;
+    this.attempt.carHits++;
     saveStore.update((s) => void s.stats.carHits++);
     const lastLife = this.run.lives <= 0;
     this.mode = 'scared';
@@ -749,6 +816,7 @@ export class GameScene extends Phaser.Scene {
     this.run.coins += coins;
     this.run.missionDone = true;
     this.run.missionsDone++;
+    this.attempt.missions++;
     if (def.kind === 'animal') addPending(this.run.achievements, 'animalMissions');
     else addPending(this.run.achievements, 'trashDeposited', def.itemsRequired);
     if (firstTime) this.run.missionFirstPending = key;
@@ -774,6 +842,16 @@ export class GameScene extends Phaser.Scene {
     this.effects.splash(this.player.x, this.player.y);
     if (lost > 0) this.effects.popup(this.player.x, this.player.y - 50, `-${lost}`, UI_COLORS.celeste);
     this.showPhrase(TEXTS2.game.wet, UI_COLORS.celeste, true);
+  }
+
+  /** Llevarse puesto a alguien no quita vidas: resta unos puntos y frena, como mojarse. */
+  private onCrowdBump(): void {
+    const lost = this.score.deduct(CROWD_TUNING.bumpPenalty);
+    this.player.slowDown();
+    audio.play('tangle');
+    this.effects.exclaim(this.player.x + 8, this.player.y - 50);
+    if (lost > 0) this.effects.popup(this.player.x, this.player.y - 50, `-${lost}`, UI_COLORS.orange);
+    this.showPhrase(pickRandom(PHRASES.bump), UI_COLORS.orange, true);
   }
 
   private onWaterDodged(x: number, y: number): void {
@@ -833,6 +911,7 @@ export class GameScene extends Phaser.Scene {
 
   private handleDodge(o: Obstacle, closeCall: boolean): void {
     const res = this.score.registerDodge(closeCall);
+    this.attempt.dodged++;
     addPending(this.run.achievements, 'poopsDodged');
     this.effects.popup(o.x, o.y - (o.def.id === 'giant' ? 26 : 14), `+${res.points}`, res.multiplier > 1 ? UI_COLORS.orange : UI_COLORS.white);
     audio.play('dodge', this.score.streak);
@@ -943,6 +1022,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.bankProgress(coinsFromStars);
     const summary = this.buildResult(true, outcome, coinsFromStars, this.run.mode === 'normal' ? stars : 0, timeMs, speed);
+    summary.onlineRunId = online.reportRun(summary);
     if (summary.newTimeRecord || summary.newScoreRecord) {
       this.time.delayedCall(900, () => audio.play('record'));
       this.events.emit('hud:record', summary.newTimeRecord);
@@ -957,6 +1037,7 @@ export class GameScene extends Phaser.Scene {
     this.abilities.reset();
     audio.play('gameOver');
     const summary = this.buildResult(false, null, 0, 0, timeMs, { points: 0, rating: null });
+    summary.onlineRunId = online.reportRun(summary);
     this.time.delayedCall(800, () => this.showResult(SCENES.GAME_OVER, summary));
   }
 
@@ -1071,7 +1152,32 @@ export class GameScene extends Phaser.Scene {
       shoesLeft: this.run.lives,
       missionsDone: this.run.missionsDone,
       unlockedCharacters: [...this.unlockedThisRun],
+      assistReasons: this.assistReasons(),
+      startBlock: this.startBlock,
+      closeCalls: s.closeCalls,
+      attempt: { ...this.attempt, achievements: { ...this.attempt.achievements } },
+      onlineRunId: null,
     };
+  }
+
+  /**
+   * Muchos teclados de notebook no registran la barra espaciadora con dos
+   * flechas apretadas ("ghosting"): la primera vez que se camina en diagonal
+   * con el teclado, se avisa (una sola vez por dispositivo) que X también salta.
+   */
+  private diagonalTip(dt: number): void {
+    if (settings.get().diagonalJumpTip || this.mode !== 'playing') return;
+    this.diagonalTime = this.controls.keyboardDiagonal ? this.diagonalTime + dt : 0;
+    if (this.diagonalTime < 0.6) return;
+    settings.set({ diagonalJumpTip: true });
+    this.showPhrase(TEXTS2.game.diagonalJumpTip, UI_COLORS.celeste, true);
+  }
+
+  private assistReasons(): ('checkpoint' | 'debug')[] {
+    const out: ('checkpoint' | 'debug')[] = [];
+    if (this.run.continues > 0 || (this.run.assisted && !this.debugTainted)) out.push('checkpoint');
+    if (this.debugTainted) out.push('debug');
+    return out;
   }
 
   private showResult(key: string, summary: LevelResult): void {

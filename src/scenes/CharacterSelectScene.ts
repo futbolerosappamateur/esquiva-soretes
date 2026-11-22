@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { portraitKey } from '../assets/manifest';
 import { audio } from '../audio/AudioManager';
 import { GAME_HEIGHT, GAME_WIDTH, SCENES } from '../config/constants';
 import { UI_COLORS } from '../config/palette';
@@ -17,8 +18,9 @@ import { CHARACTERS, isPlayable, statBars, type CharacterDef } from '../data/cha
 import { ANIM } from '../graphics/animations';
 import { ensureCharacterPreview } from '../graphics/characterTextures';
 import { FX_FRAMES, ICON_FRAMES, TEX } from '../graphics/keys';
-import { ensurePanelTexture } from '../graphics/textures/uiTextures';
+import { addIcon, addPanelImage } from '../graphics/textures/uiTextures';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
+import { fitToTexture } from '../graphics/renderScale';
 import { Button } from '../ui/Button';
 import { addText } from '../ui/text';
 import { uniqueKeyEvents } from '../input/keyEvents';
@@ -28,7 +30,10 @@ const CELL_W = 44;
 const CELL_H = 50;
 const GRID_X = 10;
 const GRID_Y = 30;
-const PANEL = { x: 152, y: 28, w: 322, h: 210 };
+const PANEL = { x: 152, y: 28, w: 322, h: 204 };
+/** Alto del retrato (ilustración grande) en la vista del personaje y en las fichas. */
+const PORTRAIT_H = 76;
+const CARD_PORTRAIT_H = 41;
 
 /**
  * Selección de personaje (antes de cada partida), con estética arcade.
@@ -40,7 +45,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private levelRef: LevelRef = { barrioId: 'san-telmo', levelIndex: 0 };
   private mode: GameMode = 'normal';
   private index = 0;
-  private cells: { frame: Phaser.GameObjects.Image; sprite: Phaser.GameObjects.Sprite }[] = [];
+  private cells: { frame: Phaser.GameObjects.Image; sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image }[] = [];
   private detail: Phaser.GameObjects.GameObject[] = [];
   private playButton!: Button;
 
@@ -64,7 +69,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       const modeLabel = this.mode === 'timeTrial' ? TEXTS2.hud.timeTrial : 'NORMAL';
       addText(this, GAME_WIDTH - 8, 8, `${found.barrio.name} · NIVEL ${found.level.number} · ${modeLabel}`, { outline: false, color: UI_COLORS.gray, origin: [1, 0] });
     }
-    this.add.image(GAME_WIDTH - 60, 22, TEX.icons, ICON_FRAMES.coin);
+    addIcon(this, GAME_WIDTH - 60, 22, ICON_FRAMES.coin);
     addText(this, GAME_WIDTH - 52, 18, `${saveStore.get().wallet.coins}`, { color: UI_COLORS.yellow });
 
     const save = saveStore.get();
@@ -73,15 +78,13 @@ export class CharacterSelectScene extends Phaser.Scene {
       const row = Math.floor(i / COLS);
       const x = GRID_X + col * CELL_W + CELL_W / 2;
       const y = GRID_Y + row * CELL_H;
-      const frame = this.add.image(x, y + CELL_H / 2, ensurePanelTexture(this.textures, CELL_W - 2, CELL_H - 2)).setInteractive({ useHandCursor: true });
-      const key = ensureCharacterPreview(this, c.id);
-      const sprite = this.add.sprite(x, y + CELL_H - 3, key, 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY);
-      sprite.play({ key: ANIM.preview(c.id), startFrame: i % 3 });
+      const frame = addPanelImage(this, x, y + CELL_H / 2, CELL_W - 2, CELL_H - 2).setInteractive({ useHandCursor: true });
+      const sprite = this.figure(c, x, y + CELL_H - 3, CARD_PORTRAIT_H, 1, i % 3);
       const unlocked = this.isUnlocked(c);
       if (!unlocked) {
         // Silueta con candado (y signo de pregunta si es un personaje futuro).
         sprite.setTint(0x120c18).setAlpha(0.9);
-        this.add.image(x + 12, y + 12, TEX.icons, ICON_FRAMES.lock);
+        addIcon(this, x + 12, y + 12, ICON_FRAMES.lock);
         if (c.unlock.kind === 'future') addText(this, x - 14, y + 4, '?', { color: UI_COLORS.gray });
       } else if (!save.seenCharacters.includes(c.id)) {
         addText(this, x, y + 2, '¡NUEVO!', { outline: true, color: UI_COLORS.green, origin: [0.5, 0] });
@@ -90,11 +93,11 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.cells.push({ frame, sprite });
     });
 
-    this.add.image(PANEL.x + PANEL.w / 2, PANEL.y + PANEL.h / 2, ensurePanelTexture(this.textures, PANEL.w, PANEL.h));
+    addPanelImage(this, PANEL.x + PANEL.w / 2, PANEL.y + PANEL.h / 2, PANEL.w, PANEL.h);
     this.playButton = new Button(this, GAME_WIDTH / 2 + 60, GAME_HEIGHT - 16, t.play, { width: 150, height: 20, onClick: () => this.confirm() });
     const back = new Button(this, 80, GAME_HEIGHT - 16, t.back, { width: 120, height: 20, onClick: () => this.back() });
     back.container.setDepth(5);
-    addText(this, GAME_WIDTH / 2 + 60, GAME_HEIGHT - 32, t.locked4ever, { outline: false, color: UI_COLORS.gray, origin: [0.5, 0] });
+    addText(this, GAME_WIDTH / 2 + 60, PANEL.y + PANEL.h + 2, t.locked4ever, { outline: false, color: UI_COLORS.gray, origin: [0.5, 0] });
 
     this.input.keyboard?.on('keydown', uniqueKeyEvents((e: KeyboardEvent) => {
       const n = CHARACTERS.length;
@@ -111,6 +114,26 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.cameras.main.fadeIn(200, 18, 12, 24);
   }
 
+  /**
+   * Figura de un personaje parada con los pies en (x, y): su retrato (la
+   * ilustración grande, con una respiración suave) si tiene, o si no el dibujo
+   * animado del juego a la escala pedida.
+   */
+  private figure(c: CharacterDef, x: number, y: number, portraitH: number, spriteScale: number, startFrame: number): Phaser.GameObjects.Sprite | Phaser.GameObjects.Image {
+    const portrait = portraitKey(c.lookId);
+    if (this.textures.exists(portrait)) {
+      const img = this.add.image(x, y, portrait).setOrigin(0.5, 1);
+      const s = portraitH / img.height;
+      img.setScale(s);
+      this.tweens.add({ targets: img, scaleY: s * 1.015, duration: 1300 + startFrame * 170, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      return img;
+    }
+    const key = ensureCharacterPreview(this, c.id);
+    const sprite = fitToTexture(this.add.sprite(x, y, key, 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY), spriteScale);
+    sprite.play({ key: ANIM.preview(c.id), startFrame });
+    return sprite;
+  }
+
   private isUnlocked(c: CharacterDef): boolean {
     return isPlayable(c) && saveStore.get().unlocks.characters.includes(c.id);
   }
@@ -124,7 +147,10 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.index = i;
     if (sound) audio.play('click');
     this.cells.forEach((cell, k) => cell.frame.setTint(k === i ? 0xffe08a : 0xffffff));
-    this.detail.forEach((o) => o.destroy());
+    this.detail.forEach((o) => {
+      this.tweens.killTweensOf(o);
+      o.destroy();
+    });
     this.detail = [];
     const c = CHARACTERS[i];
     const unlocked = this.isUnlocked(c);
@@ -133,11 +159,11 @@ export class CharacterSelectScene extends Phaser.Scene {
     let y = PANEL.y + 6;
 
     // Imagen grande del personaje.
-    const key = ensureCharacterPreview(this, c.id);
-    this.keep(this.add.image(PANEL.x + 40, PANEL.y + 92, TEX.fx, FX_FRAMES.shadow).setScale(2).setAlpha(0.35));
-    const big = this.keep(this.add.sprite(PANEL.x + 40, PANEL.y + 92, key, 'idle0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY).setScale(2));
-    big.play(ANIM.preview(c.id));
+    const feet = this.textures.exists(portraitKey(c.lookId)) ? PANEL.y + 81 : PANEL.y + 92;
+    this.keep(this.add.image(PANEL.x + 40, feet, TEX.fx, FX_FRAMES.shadow).setScale(2).setAlpha(0.35));
+    const big = this.keep(this.figure(c, PANEL.x + 40, feet, PORTRAIT_H, 2, 0));
     if (!unlocked) big.setTint(0x120c18);
+    if (sound) this.tweens.add({ targets: big, alpha: { from: 0, to: 1 }, y: { from: big.y + 4, to: big.y }, duration: 160, ease: 'Quad.easeOut' });
 
     const tx = PANEL.x + 84;
     this.keep(addText(this, tx, y, c.name, { color: UI_COLORS.yellow }));
@@ -158,7 +184,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       const by = y + k * 10;
       this.keep(addText(this, tx, by, label, { outline: false, color: UI_COLORS.gray }));
       for (let b = 0; b < 5; b++) {
-        g.fillStyle(b < v ? 0x6fe07a : 0x4a3657, 1).fillRect(tx + 52 + b * 9, by + 1, 7, 5);
+        g.fillStyle(b < v ? 0x6fe07a : 0x4a3657, 1).fillRect(tx + 57 + b * 9, by + 1, 7, 5);
       }
     });
     y = PANEL.y + 84;
@@ -166,7 +192,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     // Habilidad, pasiva y desventaja.
     if (c.ability) {
       const info = ABILITIES[c.ability];
-      this.keep(this.add.image(px + 8, y + 6, TEX.icons, info.icon));
+      this.keep(addIcon(this, px + 8, y + 6, info.icon));
       this.keep(addText(this, px + 20, y, `${t.special}: ${info.name}`, { color: UI_COLORS.yellow }));
       this.keep(addText(this, PANEL.x + PANEL.w - 8, y, `${t.cooldown} ${abilityCooldown(c.ability)} S`, { outline: false, color: UI_COLORS.gray, origin: [1, 0] }));
       y += 10;
@@ -190,14 +216,14 @@ export class CharacterSelectScene extends Phaser.Scene {
     const found = getLevel(this.levelRef);
     if (unlocked && found) {
       const best = recordsRepo.profileCharacterBest(found.level.id, this.mode, saveStore.activeProfile().id, c.id);
-      this.keep(this.add.image(px + 5, y + 4, TEX.icons, ICON_FRAMES.clock));
+      this.keep(addIcon(this, px + 5, y + 4, ICON_FRAMES.clock));
       this.keep(addText(this, px + 14, y, `${t.bestTime}: ${formatTime(best.time?.timeMs ?? null)}`, { color: UI_COLORS.white }));
-      this.keep(this.add.image(px + 5, y + 15, TEX.icons, ICON_FRAMES.trophy));
+      this.keep(addIcon(this, px + 5, y + 15, ICON_FRAMES.trophy));
       this.keep(addText(this, px + 14, y + 11, `${t.bestScore}: ${best.score ? formatThousands(best.score.score) : '-'}`, { color: UI_COLORS.white }));
     } else if (c.unlock.kind !== 'starter') {
       const prog = unlockProgress(saveStore.get(), c);
       const label = ACHIEVEMENTS[c.unlock.counter].label;
-      this.keep(this.add.image(px + 5, y + 4, TEX.icons, ICON_FRAMES.lock));
+      this.keep(addIcon(this, px + 5, y + 4, ICON_FRAMES.lock));
       const head = c.unlock.kind === 'future' ? t.futureCharacter : t.unlockBy;
       this.keep(addText(this, px + 14, y, head, { color: UI_COLORS.orange }));
       this.keep(addText(this, px + 14, y + 11, `${label}: ${prog.current}/${prog.target}`, { color: prog.done ? UI_COLORS.green : UI_COLORS.white }));

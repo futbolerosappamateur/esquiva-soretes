@@ -61,6 +61,25 @@ export interface NpcPlacement {
   maxX: number;
 }
 
+/**
+ * Persona que camina por la zona jugable (la gente del centro). Esquiva
+ * soretes y árboles; si va atenta, también se corre para no chocar al pibe.
+ */
+export interface CrowdPlacement {
+  kind: NpcKind;
+  x: number;
+  /** Profundidad por la que arranca caminando. */
+  y: number;
+  dir: 1 | -1;
+  /** Velocidad (px/s). */
+  speed: number;
+  /** Va mirando el celular: no se corre para no chocar al pibe. */
+  distracted: boolean;
+  /** Tramo de vereda por el que camina (da la vuelta en las esquinas). */
+  minX: number;
+  maxX: number;
+}
+
 /** Una cuadra del nivel. */
 export interface BlockSegment {
   index: number;
@@ -130,6 +149,8 @@ export interface LevelLayout {
   cars: CarPlacement[];
   pigeons: PigeonPlacement[];
   npcs: NpcPlacement[];
+  /** Gente caminando por la zona jugable (según los rasgos del barrio). */
+  crowd: CrowdPlacement[];
   coins: CoinPlacement[];
   mission: MissionPlacement | null;
   waterLadies: WaterLadyPlacement[];

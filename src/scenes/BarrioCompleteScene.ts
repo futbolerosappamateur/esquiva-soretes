@@ -9,9 +9,11 @@ import { getBarrio } from '../data/campaign';
 import { ANIM } from '../graphics/animations';
 import { FX_FRAMES, ICON_FRAMES, TEX } from '../graphics/keys';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
+import { fitToTexture } from '../graphics/renderScale';
 import { Button } from '../ui/Button';
 import { ButtonMenu } from '../ui/ButtonMenu';
 import { addText } from '../ui/text';
+import { addIcon } from '../graphics/textures/uiTextures';
 
 /** Pantalla especial al completar los tres niveles de un barrio. */
 export class BarrioCompleteScene extends Phaser.Scene {
@@ -38,17 +40,17 @@ export class BarrioCompleteScene extends Phaser.Scene {
     this.tweens.add({ targets: title, scale: { from: 0.8, to: 2 }, duration: 500, ease: 'Back.easeOut' });
     addText(this, cx, 34, barrio?.name ?? '', { scale: 3, color: UI_COLORS.white, origin: [0.5, 0] });
 
-    const badge = this.add.image(cx, 112, TEX.icons, ICON_FRAMES.badge).setScale(4);
+    const badge = addIcon(this, cx, 112, ICON_FRAMES.badge, 4);
     this.tweens.add({ targets: badge, angle: { from: -8, to: 8 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     // El personaje festeja.
-    const hero = this.add.sprite(cx - 96, 178, TEX.player(0), 'win0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY).setScale(2);
+    const hero = fitToTexture(this.add.sprite(cx - 96, 178, TEX.player(0), 'win0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY), 2);
     hero.play(ANIM.player(0, 'win'));
     this.add.image(cx - 96, 178, TEX.fx, FX_FRAMES.shadow).setScale(2).setAlpha(0.3).setDepth(-1);
 
     if (barrio) {
       const { stars, max } = barrioStars(saveStore.get(), barrio);
-      this.add.image(cx + 54, 154, TEX.icons, ICON_FRAMES.star).setScale(2);
+      addIcon(this, cx + 54, 154, ICON_FRAMES.star, 2);
       addText(this, cx + 70, 146, `${stars}/${max}`, { scale: 2, color: UI_COLORS.yellow, origin: [0, 0] });
     }
     const next = this.unlocked ? getBarrio(this.unlocked) : null;

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH } from '../../config/constants';
 import { RNG } from '../../core/rng';
-import { CORNER_SPECS, FACADE_SPECS } from '../facadeSpecs';
+import { CORNER_SPECS, FACADE_SPECS, VERSALLES_SPECS } from '../facadeSpecs';
 import { hexToRgb } from '../color';
 import { TEX } from '../keys';
 import { PixelCanvas } from '../PixelCanvas';
@@ -170,7 +170,8 @@ export function generateEnvironmentVariants(textures: Phaser.Textures.TextureMan
   drawSkyOvercast().addTo(textures, TEX.skyOvercast);
   nightSkyline(textures)?.addTo(textures, TEX.skylineNight);
 
-  [...FACADE_SPECS, ...CORNER_SPECS].forEach((spec, k) => {
+  // Las de Versalles van al final: así no cambian las ventanas prendidas de las demás.
+  [...FACADE_SPECS, ...CORNER_SPECS, ...VERSALLES_SPECS].forEach((spec, k) => {
     const base = canvasFromTexture(textures, TEX.facade(spec.id));
     if (base) nightFacade(base, 1000 + k * 37, litWindowRatio).addTo(textures, TEX.facadeNight(spec.id));
   });
