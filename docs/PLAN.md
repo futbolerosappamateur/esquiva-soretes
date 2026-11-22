@@ -48,9 +48,9 @@ Rumbo acordado el 22 de noviembre de 2026. Lo que ya está hecho se marca con �
 8. **Lanzamiento público:** cuando el primer barrio esté entero en plastilina con los 4
    personajes iniciales.
 
-## Propuesta: el juego en la hora y la estación de la vida real
+## Decidido: el juego en la hora y la estación de la vida real
 
-Idea: cada nivel se juega en **8 versiones** (de día y de noche, en las 4 estaciones), cada
+Aprobado el 22 de noviembre de 2026: cada nivel se juega en **8 versiones** (de día y de noche, en las 4 estaciones), cada
 personaje se viste según la estación y, si se quiere, el juego toma **la hora y la estación
 reales** de quien juega.
 
@@ -59,7 +59,7 @@ reales** de quien juega.
   cambia con la estación: en verano se pone pasadas las 20; en invierno, antes de las 18. De
   noche se usa la ambientación de noche (ventanas prendidas y faroles). Se prueba con
   `?hora=19:30` o `?hora=real` (código: `src/graphics/daylight.ts`).
-- **Mismo recorrido, mismos soretes en las 8 versiones** (propuesta): así los récords se pueden
+- **Mismo recorrido, mismos soretes en las 8 versiones:** así los récords se pueden
   comparar aunque cada uno juegue a otra hora. La hora y la estación cambian cómo se ve, la
   ropa y algún detalle (las hojas de otoño, las flores de primavera, los charcos de invierno),
   pero no la dificultad. Hoy los montones de hojas de otoño esconden soretes: con esta regla
@@ -67,11 +67,11 @@ reales** de quien juega.
 - **El arte no se multiplica por 8:** las fachadas son las mismas todo el año (más una capa con
   las ventanas prendidas para la noche); lo que cambia por estación son los árboles (verdes,
   otoñales, pelados, con flores) y lo que hay en el piso; el cielo y la luz los pone el filtro.
-- **La ropa de cada personaje:** cada vestuario son 5 imágenes (caminar, correr, saltar, poder y
-  sorete). Con 3 vestuarios (verano, media estación para otoño y primavera, invierno) son 15
-  imágenes por personaje; con 4, 20.
+- **La ropa de cada personaje:** 3 vestuarios (verano, media estación para otoño y primavera, e
+  invierno). Cada vestuario son 5 imágenes (caminar, correr, saltar, poder y sorete): 15 por
+  personaje (con un vestuario por estación serían 20).
 - **Hora real:** se toma la hora de la compu o del celular y la estación del hemisferio sur.
-  Propuesta: activada de entrada, con una opción para apagarla y elegir el momento a mano.
+  Viene activada de entrada, con una opción para apagarla y elegir el momento a mano.
 - **Para que den ganas de jugar:** logros por completar un nivel en las 4 estaciones o de día y
   de noche.
 
