@@ -100,4 +100,5 @@ const target = path.join(ROOT, 'public/assets/ui/logo.png');
 fs.mkdirSync(path.dirname(target), { recursive: true });
 fs.writeFileSync(target, PNG.sync.write(out));
 console.log(`Listo: public/assets/ui/logo.png (${frames.length} cuadros de ${W}×${H}, en ${cols}×${rows})`);
+console.log('Después, la versión WebP (la que usan el juego y la portada): public/assets/ui/logo.webp y sitio/logo-animado.webp (ver art/README.md).');
 if (W < 1000) console.log(`Ojo: los cuadros miden ${W} px. Para que se vea nítido en pantallas grandes, conviene una versión de 1200 px o más.`);

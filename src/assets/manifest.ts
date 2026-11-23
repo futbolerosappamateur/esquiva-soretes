@@ -92,11 +92,12 @@ const LOGO_UNITS = 104;
 const LOGO_FRAMES = Array.from({ length: 9 }, (_, i) => 'f' + i);
 
 export const ASSET_MANIFEST: AssetEntry[] = [
-  // Logo de la portada, de plastilina y animado (art/source/logo.gif → npm run logo).
+  // Logo de la portada, de plastilina y animado (art/source/logo.gif → npm run logo). Se carga
+  // en WebP (430 KB contra 1,8 MB del PNG): ver la sección del logo en art/README.md.
   {
     kind: 'spritesheet',
     key: 'logo-art',
-    url: 'assets/ui/logo.png',
+    url: 'assets/ui/logo.webp',
     frameWidth: 418,
     frameHeight: 418,
     frames: LOGO_FRAMES,

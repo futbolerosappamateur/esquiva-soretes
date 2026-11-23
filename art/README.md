@@ -133,7 +133,11 @@ El logo animado (de plastilina: el sorete salta y el farol titila) está en
 npm run logo                 # arma public/assets/ui/logo.png con los cuadros de source/logo/
 ```
 
-El conversor suaviza el borde y avisa si los cuadros son chicos. Para que se
+El conversor suaviza el borde y avisa si los cuadros son chicos. El juego y la
+portada usan esa misma hoja **en WebP** (pesa la cuarta parte):
+`public/assets/ui/logo.webp` y `sitio/logo-animado.webp`. Se generan a partir
+de `public/assets/ui/logo.png` con cualquier conversor a WebP que conserve la
+transparencia (por ejemplo, squoosh.app). Para que se
 vea nítido en pantallas grandes conviene mandarlo **de 1200 px o más, en PNG
 con fondo transparente** y, si es animado, **un PNG por cuadro** (el GIF tiene
 256 colores y el borde serruchado). En el menú se muestra de 104 unidades de

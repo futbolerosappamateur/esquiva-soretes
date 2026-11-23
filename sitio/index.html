@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Esquiva Soretes · Próximamente</title>
+    <meta name="description" content="Un juego porteño: caminá por las veredas de Buenos Aires sin pisar ni uno. Muy pronto." />
+    <meta name="theme-color" content="#1d1424" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://esquivasoretes.com.ar/" />
+    <meta property="og:title" content="Esquiva Soretes · Próximamente" />
+    <meta property="og:description" content="Un juego porteño: caminá por las veredas de Buenos Aires sin pisar ni uno. Muy pronto." />
+    <meta property="og:image" content="https://esquivasoretes.com.ar/logo.png" />
+    <meta property="og:image:width" content="418" />
+    <meta property="og:image:height" content="418" />
+    <meta name="twitter:card" content="summary" />
+    <style>
+      @font-face {
+        font-family: 'Geologica';
+        src: url('geologica-semibold.ttf') format('truetype');
+        font-weight: 600;
+        font-display: swap;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        min-height: 100vh;
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        padding: 24px 16px;
+        text-align: center;
+        font-family: 'Geologica', system-ui, sans-serif;
+        font-weight: 600;
+        color: #fff6e3;
+        /* Cielo de atardecer porteño, como el de las ilustraciones del juego. */
+        background:
+          radial-gradient(ellipse 90% 55% at 50% 110%, #ffb45c 0%, rgba(255, 140, 80, 0.55) 38%, transparent 72%),
+          linear-gradient(180deg, #1d2a5a 0%, #4a3a78 42%, #c8607a 76%, #f39a5b 100%);
+      }
+      main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        max-width: 640px;
+      }
+      /* El logo animado: 9 cuadros en una grilla de 3×3 (el sorete salta y el farol titila). */
+      .logo {
+        width: min(80vw, 430px);
+        aspect-ratio: 1;
+        background: url('logo-animado.webp') 0 0 / 300% 300% no-repeat;
+        animation: logo 1.26s step-end infinite;
+        filter: drop-shadow(0 18px 22px rgba(20, 10, 30, 0.45));
+      }
+      @keyframes logo {
+        0% { background-position: 0% 0%; }
+        11.11% { background-position: 50% 0%; }
+        22.22% { background-position: 100% 0%; }
+        33.33% { background-position: 0% 50%; }
+        44.44% { background-position: 50% 50%; }
+        55.55% { background-position: 100% 50%; }
+        66.66% { background-position: 0% 100%; }
+        77.77% { background-position: 50% 100%; }
+        88.88% { background-position: 100% 100%; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .logo { animation: none; }
+      }
+      h1 {
+        font-size: clamp(2.3rem, 10vw, 4.4rem);
+        letter-spacing: 0.04em;
+        color: #ffd34f;
+        text-shadow: 0 4px 0 #b4532a, 0 9px 18px rgba(40, 10, 20, 0.45);
+      }
+      p {
+        font-size: clamp(1.05rem, 3.8vw, 1.35rem);
+        line-height: 1.4;
+        max-width: 30ch;
+      }
+      footer {
+        margin-top: 10px;
+        font-size: 0.85rem;
+        opacity: 0.75;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="logo" role="img" aria-label="Esquiva Soretes"></div>
+      <h1>Próximamente</h1>
+      <p>Un juego porteño para esquivar soretes por las veredas de Buenos Aires.</p>
+      <p>Muy pronto, en una vereda cerca tuyo.</p>
+      <footer>© 2026 Esquiva Soretes</footer>
+    </main>
+  </body>
+</html>
