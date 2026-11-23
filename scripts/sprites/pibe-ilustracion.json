@@ -1,0 +1,164 @@
+{
+  "_nota": "Versión anterior del pibe (ilustración, art/source/pibe-sheet.png). Si la corrés, reemplaza al pibe de plastilina: es sólo para consultar.",
+  "look": "pibe",
+  "source": "art/source/pibe-sheet.png",
+  "style": "smooth",
+  "renderScale": 2,
+  "portrait": {
+    "region": {
+      "x": 14,
+      "y": 43,
+      "w": 205,
+      "h": 428
+    },
+    "minAlpha": 24,
+    "solidAlpha": 232
+  },
+  "region": {
+    "x": 745,
+    "y": 0,
+    "w": 703,
+    "h": 1086
+  },
+  "clean": {
+    "minAlpha": 128,
+    "fringe": {
+      "minR": 200,
+      "maxG": 60,
+      "maxB": 60,
+      "maxAlpha": 250
+    }
+  },
+  "minArea": 150,
+  "mergeGap": 3,
+  "targetHeight": 84,
+  "reference": "idle0",
+  "frames": {
+    "idle0": [
+      0,
+      0
+    ],
+    "idle1": [
+      0,
+      1
+    ],
+    "blink": [
+      0,
+      2
+    ],
+    "walk0": [
+      1,
+      0
+    ],
+    "walk1": [
+      1,
+      1
+    ],
+    "walk2": [
+      1,
+      2
+    ],
+    "walk3": [
+      1,
+      3
+    ],
+    "walk4": [
+      1,
+      4
+    ],
+    "walk5": [
+      1,
+      5
+    ],
+    "walk6": [
+      1,
+      6
+    ],
+    "walk7": [
+      1,
+      7
+    ],
+    "run0": [
+      2,
+      0
+    ],
+    "run1": [
+      2,
+      1
+    ],
+    "run2": [
+      2,
+      2
+    ],
+    "run3": [
+      2,
+      3
+    ],
+    "run4": [
+      2,
+      4
+    ],
+    "run5": [
+      2,
+      5
+    ],
+    "run6": [
+      2,
+      6
+    ],
+    "run7": [
+      2,
+      7
+    ],
+    "jumpPrep": [
+      3,
+      0
+    ],
+    "jumpUp": [
+      3,
+      2
+    ],
+    "jumpDown": [
+      3,
+      4
+    ],
+    "special0": [
+      4,
+      2
+    ],
+    "stepShock": [
+      5,
+      4
+    ],
+    "stepLift": [
+      5,
+      5
+    ],
+    "stepLook": [
+      5,
+      7
+    ],
+    "stepDisgust": [
+      6,
+      3
+    ],
+    "dizzy": [
+      7,
+      0
+    ],
+    "win0": {
+      "sprite": [
+        9,
+        0
+      ],
+      "scale": 0.92
+    },
+    "win1": {
+      "sprite": [
+        9,
+        1
+      ],
+      "scale": 0.92
+    }
+  }
+}

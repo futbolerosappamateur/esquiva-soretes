@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { DEPTH, GAME_WIDTH } from '../config/constants';
 import { ANIM } from '../graphics/animations';
-import { FONTS } from '../graphics/BitmapFontBuilder';
+import { FONT_SIZE, FONTS } from '../graphics/BitmapFontBuilder';
 import { FX_FRAMES, TEX } from '../graphics/keys';
 
 export interface FlyTarget {
@@ -168,7 +168,7 @@ export class EffectsSystem {
   /** Puntaje flotante chiquito ("+50"). */
   popup(x: number, y: number, text: string, color: number): void {
     const t = this.scene.add
-      .bitmapText(Math.round(x), Math.round(y), FONTS.OUTLINE, text)
+      .bitmapText(Math.round(x), Math.round(y), FONTS.OUTLINE, text, FONT_SIZE[FONTS.OUTLINE])
       .setOrigin(0.5, 1)
       .setTint(color)
       .setDepth(DEPTH.floatingText);

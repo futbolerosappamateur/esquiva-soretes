@@ -25,9 +25,8 @@ body {
   background: #120c18;
 }
 
+/* El filtro con que se agranda el lienzo (suave o por píxeles) lo elige el juego: graphics/renderScale.ts. */
 #game canvas {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   outline: none;
 }
 

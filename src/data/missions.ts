@@ -14,6 +14,10 @@ export interface MissionDef {
   firstTimeBonus: number;
   rewardPoints: number;
   implemented: boolean;
+  /** Tipo de misión: juntar residuos o ayudar a un animal (cuentan para logros distintos). */
+  kind: 'trash' | 'animal';
+  /** NPC que la ofrece o recibe la entrega (ver data/npcs.ts). */
+  giver: string;
 }
 
 export const MISSIONS: Record<string, MissionDef> = {
@@ -26,6 +30,20 @@ export const MISSIONS: Record<string, MissionDef> = {
     firstTimeBonus: 15,
     rewardPoints: 300,
     implemented: true,
+    kind: 'trash',
+    giver: 'portero',
+  },
+  'lost-dog': {
+    id: 'lost-dog',
+    title: 'PERRO PERDIDO',
+    description: 'ENCONTRÁ A TOBY Y LLEVALO CON SU DUEÑA, QUE LO ESPERA MÁS ADELANTE.',
+    itemsRequired: 1,
+    rewardCoins: 8,
+    firstTimeBonus: 15,
+    rewardPoints: 400,
+    implemented: true,
+    kind: 'animal',
+    giver: 'duenaPerro',
   },
   // --- Próximas misiones (estructura preparada) ---------------------------
   'rescue-cat': {
@@ -37,6 +55,8 @@ export const MISSIONS: Record<string, MissionDef> = {
     firstTimeBonus: 20,
     rewardPoints: 500,
     implemented: false,
+    kind: 'animal',
+    giver: '',
   },
   'collect-fruit': {
     id: 'collect-fruit',
@@ -47,6 +67,8 @@ export const MISSIONS: Record<string, MissionDef> = {
     firstTimeBonus: 15,
     rewardPoints: 400,
     implemented: false,
+    kind: 'trash',
+    giver: '',
   },
 };
 

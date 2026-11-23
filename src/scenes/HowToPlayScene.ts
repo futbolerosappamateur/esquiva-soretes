@@ -6,6 +6,7 @@ import { OBSTACLE_TYPES, type ObstacleTypeId } from '../entities/obstacles/Obsta
 import { ANIM } from '../graphics/animations';
 import { FX_FRAMES, TEX } from '../graphics/keys';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
+import { fitToTexture } from '../graphics/renderScale';
 import { Button } from '../ui/Button';
 import { ButtonMenu } from '../ui/ButtonMenu';
 import { addDim, addPanel } from '../ui/Panel';
@@ -13,9 +14,9 @@ import { addText } from '../ui/text';
 
 const ICONS: ObstacleTypeId[] = ['poop', 'giant', 'camo', 'looseTile'];
 
-const PAGES = 3;
+const PAGES = 4;
 
-/** Instrucciones en tres páginas: controles, obstáculos y puntos, y cruces/monedas/checkpoints. */
+/** Instrucciones: controles, obstáculos y puntos, cruces/monedas/checkpoints, y poderes/tiempo/récords. */
 export class HowToPlayScene extends Phaser.Scene {
   private page = 0;
   private from: string = SCENES.MENU;
@@ -66,7 +67,8 @@ export class HowToPlayScene extends Phaser.Scene {
     this.pageButton.setText(this.page < PAGES - 1 ? `${TEXTS.howTo.next} ${this.page + 1}/${PAGES}` : TEXTS.howTo.prev);
     if (this.page === 0) this.renderControls();
     else if (this.page === 1) this.renderObstacles();
-    else this.renderStreets();
+    else if (this.page === 2) this.renderStreets();
+    else this.renderPowers();
   }
 
   private renderControls(): void {
@@ -74,16 +76,16 @@ export class HowToPlayScene extends Phaser.Scene {
     this.subtitle.setText(TEXTS.howTo.pageControls);
     this.keep(addText(this, cx, 60, TEXTS.howTo.goal, { color: UI_COLORS.cream, origin: [0.5, 0] }));
     TEXTS.howTo.keyboard.forEach(([key, action], i) => {
-      const y = 76 + i * 13;
+      const y = 74 + i * 11;
       this.keep(addText(this, 58, y, key, { color: UI_COLORS.yellow }));
       this.keep(addText(this, 124, y, action, { color: UI_COLORS.white }));
     });
-    this.keep(addText(this, cx, 158, TEXTS.howTo.ghosting, { color: UI_COLORS.orange, origin: [0.5, 0], align: 'center', maxWidth: 380 }));
-    this.keep(addText(this, cx, 178, TEXTS.howTo.touch, { color: UI_COLORS.celeste, origin: [0.5, 0], align: 'center', maxWidth: 380 }));
-    this.keep(addText(this, cx, 202, 'TIP: EL MOVIMIENTO VERTICAL ES PROFUNDIDAD, NO UN SALTO.', { outline: false, color: UI_COLORS.gray, origin: [0.5, 0] }));
+    this.keep(addText(this, cx, 166, TEXTS.howTo.ghosting, { color: UI_COLORS.orange, origin: [0.5, 0], align: 'center', maxWidth: 380 }));
+    this.keep(addText(this, cx, 184, TEXTS.howTo.touch, { color: UI_COLORS.celeste, origin: [0.5, 0], align: 'center', maxWidth: 380 }));
+    this.keep(addText(this, cx, 208, 'TIP: EL MOVIMIENTO VERTICAL ES PROFUNDIDAD, NO UN SALTO.', { outline: false, color: UI_COLORS.gray, origin: [0.5, 0] }));
 
     const shadow = this.keep(this.add.image(390, 150, TEX.fx, FX_FRAMES.shadow).setAlpha(0.3));
-    const runner = this.keep(this.add.sprite(390, 150, TEX.player(0), 'run0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY));
+    const runner = this.keep(fitToTexture(this.add.sprite(390, 150, TEX.player(0), 'run0').setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY)));
     runner.play(ANIM.player(0, 'run'));
     void shadow;
   }
@@ -108,7 +110,17 @@ export class HowToPlayScene extends Phaser.Scene {
   private renderStreets(): void {
     this.subtitle.setText(TEXTS.howTo.pageStreets);
     TEXTS.howTo.streets.forEach(([name, desc], i) => {
-      const y = 60 + i * 32;
+      // Algunas descripciones ocupan dos renglones: un poco más de aire entre ítems.
+      const y = 58 + i * 34;
+      this.keep(addText(this, 40, y, name, { color: UI_COLORS.yellow }));
+      this.keep(addText(this, 40, y + 10, desc, { color: UI_COLORS.white, maxWidth: 400 }));
+    });
+  }
+
+  private renderPowers(): void {
+    this.subtitle.setText(TEXTS.howTo.pagePowers);
+    TEXTS.howTo.powers.forEach(([name, desc], i) => {
+      const y = 58 + i * 27;
       this.keep(addText(this, 40, y, name, { color: UI_COLORS.yellow }));
       this.keep(addText(this, 40, y + 10, desc, { color: UI_COLORS.white, maxWidth: 400 }));
     });

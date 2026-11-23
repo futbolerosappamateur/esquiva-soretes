@@ -6,13 +6,13 @@ import { createRun } from '../core/RunState';
 import { BARRIOS } from '../data/campaign';
 import { debugFlags } from '../debug/DebugOverlay';
 import { createAnimations } from '../graphics/animations';
-import { registerFonts } from '../graphics/BitmapFontBuilder';
+import { loadGameFont, registerFonts } from '../graphics/BitmapFontBuilder';
 import { TEXTURE_STEPS } from '../graphics/textures';
 import { addText } from '../ui/text';
 
 /**
  * Carga inicial: gráficos definitivos declarados en el manifiesto (si los
- * hay), fuente pixelada, texturas provisionales y animaciones. Lo hace por
+ * hay), la letra del juego, texturas provisionales y animaciones. Lo hace por
  * pasos para poder mostrar el progreso.
  */
 export class BootScene extends Phaser.Scene {
@@ -32,6 +32,13 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#1d1424');
+    // La letra viene en un archivo aparte: se espera a que esté (tarda un instante) antes de escribir.
+    void loadGameFont().then(() => {
+      if (this.sys.isActive()) this.start();
+    });
+  }
+
+  private start(): void {
     registerFonts(this);
     const cx = GAME_WIDTH / 2;
     addText(this, cx, GAME_HEIGHT / 2 - 34, 'ESQUIVA SORETES', { scale: 2, color: UI_COLORS.yellow, origin: 0.5 });

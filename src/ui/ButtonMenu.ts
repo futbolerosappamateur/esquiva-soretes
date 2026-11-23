@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { TEX, UI_FRAMES } from '../graphics/keys';
+import { TEX } from '../graphics/keys';
+import { fitToTexture } from '../graphics/renderScale';
 import type { Button } from './Button';
+import { uniqueKeyEvents } from '../input/keyEvents';
 
 export interface MenuItem {
   button: Button;
@@ -30,19 +32,20 @@ export class ButtonMenu {
     private readonly items: MenuItem[],
     private readonly opts: MenuOptions = {},
   ) {
-    this.cursor = scene.add
-      .image(0, 0, TEX.ui, UI_FRAMES.cursor)
+    this.cursor = fitToTexture(scene.add.image(0, 0, TEX.cursor))
       .setDepth((opts.depth ?? 0) + 1)
       .setScrollFactor(0);
     scene.tweens.add({ targets: this.cursor, x: '+=3', duration: 320, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     items.forEach((it, i) => (it.button.onHover = () => this.focus(i, true)));
     this.keyboard = scene.input.keyboard;
-    this.keyboard?.on('keydown', this.onKey, this);
+    this.keyboard?.on('keydown', this.onKey);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
     this.focus(opts.initial ?? 0, false);
   }
 
-  private onKey(event: KeyboardEvent): void {
+  private readonly onKey = uniqueKeyEvents((event) => this.handleKey(event));
+
+  private handleKey(event: KeyboardEvent): void {
     if (!this.enabled || this.items.length === 0) return;
     switch (event.code) {
       case 'ArrowUp':
@@ -94,7 +97,7 @@ export class ButtonMenu {
   }
 
   destroy(): void {
-    this.keyboard?.off('keydown', this.onKey, this);
+    this.keyboard?.off('keydown', this.onKey);
     this.cursor.destroy();
   }
 }

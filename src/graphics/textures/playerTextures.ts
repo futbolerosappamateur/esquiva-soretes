@@ -37,7 +37,7 @@ export interface CharacterLook {
   tongue: string;
   blush: string;
   /** Peinado / accesorio de cabeza (por defecto, pelo corto). */
-  hairStyle?: 'short' | 'ponytail' | 'headband' | 'bald' | 'cap';
+  hairStyle?: 'short' | 'ponytail' | 'headband' | 'bald' | 'cap' | 'helmet' | 'bun';
   /** Color de vincha o gorra. */
   accent?: string;
   mustache?: boolean;
@@ -45,11 +45,17 @@ export interface CharacterLook {
   torso?: 'stripes' | 'solid' | 'zip';
   /** Pantalón largo (por defecto) o short (se ven las piernas). */
   legs?: 'pants' | 'shorts';
+  /** Anda siempre en monopatín (se dibuja debajo de los pies). */
+  scooter?: boolean;
+  /** Objeto que aparece en la pose de "poder": escoba, manguera, silbato. */
+  prop?: 'broom' | 'hose' | 'whistle';
 }
 
 /** Look por defecto: remera a rayas celeste y blanca, jean y zapatillas blancas. */
 export const DEFAULT_LOOK: CharacterLook = {
   id: 'pibe',
+  hairStyle: 'cap',
+  accent: '#d8352a',
   skin: '#f1bf98',
   skinShade: '#d39470',
   skinSick: '#b8d27e',
@@ -228,6 +234,16 @@ export function drawHead(pc: PixelCanvas, x: number, y: number, look: CharacterL
     for (let oy = 0; oy < 5; oy++) for (let ox = 2; ox < 15; ox++) if (HEAD_BASE[oy][ox] !== '.') pc.px(fx(ox), y + oy, oy === 4 ? '#1f1a24' : c);
     for (let ox = 11; ox < 18; ox++) pc.px(fx(ox), y + 5, c);
   }
+  if (look.hairStyle === 'helmet') {
+    const c = look.accent ?? '#ff7ac8';
+    for (let oy = 0; oy < 6; oy++) for (let ox = 1; ox < 16; ox++) if (HEAD_BASE[oy][ox] !== '.') pc.px(fx(ox), y + oy, oy === 1 ? '#ffc2e6' : oy === 5 ? '#c2508f' : c);
+    pc.px(fx(2), y + 9, '#21142b').px(fx(2), y + 10, '#21142b');
+  }
+  if (look.hairStyle === 'bun') {
+    for (const [ox, oy] of [[2, -3], [3, -3], [4, -3], [1, -2], [2, -2], [3, -2], [4, -2], [5, -2], [1, -1], [2, -1], [3, -1], [4, -1], [5, -1], [2, 0], [3, 0], [4, 0]]) {
+      pc.px(fx(ox), y + oy, oy === -3 ? look.hairLight : look.hair);
+    }
+  }
   for (const [ox, oy, key] of EXPRESSIONS[expr]) {
     const color = pal[key];
     if (!color) continue;
@@ -316,8 +332,33 @@ export interface DirtState {
   back: boolean;
 }
 
+const SCOOTER_LIFT = 4;
+
+function liftPose(pose: Pose, dy: number): Pose {
+  const m = (p: Pt): Pt => [p[0], p[1] - dy];
+  const limb = (l: Limb): Limb => ({ a: m(l.a), b: m(l.b), c: m(l.c) });
+  return { ...pose, hip: m(pose.hip), neck: m(pose.neck), backLeg: limb(pose.backLeg), frontLeg: limb(pose.frontLeg), backArm: limb(pose.backArm), frontArm: limb(pose.frontArm) };
+}
+
+function drawScooter(pc: PixelCanvas, deckY: number): void {
+  const pink = '#ff7ac8';
+  pc.line(32, deckY, 31, deckY - 17, '#c4c8d2');
+  pc.hline(28, deckY - 17, 6, '#21142b');
+  pc.px(28, deckY - 17, pink).px(33, deckY - 17, pink);
+  pc.rect(13, deckY, 21, 2, pink);
+  pc.hline(13, deckY + 1, 21, '#c2508f');
+  for (const wx of [16, 31]) {
+    pc.disc(wx, deckY + 3.5, 2.2, '#21142b');
+    pc.px(wx, deckY + 3, '#b4b4bc');
+  }
+}
+
 export function renderPose(pose: Pose, look: CharacterLook, dirt: DirtState = { front: false, back: false }): PixelCanvas {
   const pc = new PixelCanvas(PLAYER_FRAME.width, PLAYER_FRAME.height);
+  if (look.scooter) {
+    pose = liftPose(pose, SCOOTER_LIFT);
+    drawScooter(pc, pose.frontLeg.c[1] + 4);
+  }
   const sick = pose.head === 'disgust';
   const skin = sick ? look.skinSick : look.skin;
   const skinBack = sick ? look.skinSickShade : look.skinShade;
@@ -498,7 +539,65 @@ export const PLAYER_POSES: Record<string, Pose> = {
   },
 };
 
+/** Pose genérica de "activar el poder". */
+PLAYER_POSES.special0 = {
+  hip: P(24, 34), neck: P(25, 23), head: 'focus',
+  backLeg: L(P(22, 34), P(20, 39), P(20, 43)), backFoot: 'flat',
+  frontLeg: L(P(26, 34), P(29, 39), P(27, 43)), frontFoot: 'flat',
+  frontArm: L(P(28, 25), P(33, 24), P(37, 21)),
+  backArm: L(P(21, 25), P(16, 24), P(12, 21)),
+};
+
 export const PLAYER_FRAME_NAMES = Object.keys(PLAYER_POSES);
+
+/** Poses del monopatín: deslizar (caminar) e impulsarse con un pie (correr). */
+const GLIDE: Pose = {
+  hip: P(24, 32), neck: P(26, 21), head: 'normal',
+  backLeg: L(P(22, 32), P(21, 38), P(20, 43)), backFoot: 'flat',
+  frontLeg: L(P(26, 32), P(27, 38), P(28, 43)), frontFoot: 'flat',
+  frontArm: L(P(28, 23), P(31, 26), P(31, 28)),
+  backArm: L(P(21, 23), P(25, 26), P(29, 28)),
+};
+const GLIDE_LOW: Pose = { ...GLIDE, hip: P(24, 33), neck: P(26, 22), frontArm: L(P(28, 24), P(31, 27), P(31, 28)), backArm: L(P(21, 24), P(25, 27), P(29, 28)) };
+const KICK: Pose = { ...GLIDE, head: 'focus', neck: P(27, 21), backLeg: L(P(22, 32), P(18, 39), P(13, 47)), backFoot: 'toe' };
+const KICK_BACK: Pose = { ...GLIDE, head: 'focus', neck: P(27, 21), backLeg: L(P(22, 32), P(20, 37), P(17, 41)), backFoot: 'flat' };
+const SCOOTER_POSES: Record<string, Pose> = { walk0: GLIDE, walk1: GLIDE_LOW, walk2: GLIDE, walk3: GLIDE_LOW, run0: KICK, run1: KICK_BACK, run2: GLIDE, run3: KICK_BACK };
+
+/** Pose de poder propia de cada look (si no está, se usa la genérica). */
+const SPECIAL_POSES: Record<string, Pose> = {
+  pibe: { ...PLAYER_POSES.run0, head: 'focus' },
+  piba: { ...PLAYER_POSES.jumpUp },
+  skater: { ...GLIDE_LOW, head: 'focus', neck: P(28, 24), hip: P(24, 34) },
+  runner: { ...PLAYER_POSES.run2, head: 'focus' },
+  portero: { ...IDLE, head: 'focus', neck: P(25, 21), frontArm: L(P(28, 23), P(30, 27), P(32, 30)), backArm: L(P(21, 23), P(24, 27), P(29, 29)) },
+  vieja: { ...IDLE, head: 'focus', frontArm: L(P(28, 23), P(32, 25), P(36, 25)), backArm: L(P(21, 23), P(25, 26), P(30, 26)) },
+  paseador: { ...IDLE, head: 'focus', frontArm: L(P(28, 23), P(33, 22), P(38, 20)) },
+  policia: { ...IDLE, head: 'normal', frontArm: L(P(28, 23), P(31, 21), P(30, 18)) },
+};
+
+function poseFor(name: string, look: CharacterLook): Pose {
+  if (name === 'special0' && SPECIAL_POSES[look.id]) return SPECIAL_POSES[look.id];
+  if (look.scooter && SCOOTER_POSES[name]) return SCOOTER_POSES[name];
+  return PLAYER_POSES[name];
+}
+
+/** Escoba, manguera o silbato en la pose de poder (con su propio contorno). */
+function drawProp(pc: PixelCanvas, prop: CharacterLook['prop']): void {
+  if (prop === 'broom') {
+    pc.line(31, 27, 39, 45, '#21142b', 3).line(31, 27, 39, 45, '#c99a5a', 1);
+    pc.rect(35, 43, 9, 4, '#21142b');
+    pc.rect(36, 44, 7, 2, '#e3c26a');
+  } else if (prop === 'hose') {
+    pc.line(36, 25, 30, 34, '#21142b', 3).line(36, 25, 30, 34, '#3f7a4a', 1);
+    pc.rect(36, 23, 4, 4, '#21142b');
+    pc.rect(37, 24, 2, 2, '#c4c8d2');
+    for (const [x, y] of [[41, 24], [43, 25], [45, 26], [44, 23], [46, 28]]) pc.px(x, y, '#8fd6ff');
+  } else if (prop === 'whistle') {
+    pc.rect(30, 16, 4, 2, '#21142b');
+    pc.hline(31, 16, 2, '#e6e6ee');
+    pc.px(35, 13, '#ffffff').px(36, 12, '#ffffff').px(35, 16, '#ffffff').px(37, 16, '#ffffff');
+  }
+}
 
 /**
  * Genera las tres hojas del protagonista: zapatillas limpias, una sucia y las dos sucias.
@@ -510,7 +609,11 @@ export function generatePlayerTextures(textures: Phaser.Textures.TextureManager,
     { front: true, back: true },
   ];
   dirtLevels.forEach((dirt, level) => {
-    const frames = PLAYER_FRAME_NAMES.map((name) => ({ name, canvas: renderPose(PLAYER_POSES[name], look, dirt) }));
+    const frames = PLAYER_FRAME_NAMES.map((name) => {
+      const canvas = renderPose(poseFor(name, look), look, dirt);
+      if (name === 'special0' && look.prop) drawProp(canvas, look.prop);
+      return { name, canvas };
+    });
     buildSheet(textures, TEX.player(level), frames, 8);
   });
 

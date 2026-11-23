@@ -38,7 +38,27 @@ export const NPC_DEFS: Record<string, NpcDef> = {
       },
     ],
   },
-  // --- Preparados (sin sprites definitivos todavía) -----------------------
+  duenaPerro: {
+    id: 'duenaPerro',
+    name: 'LA DUEÑA DE TOBY',
+    kind: 'person',
+    look: 'duena',
+    ready: true,
+    behaviors: [
+      { kind: 'idle' },
+      { kind: 'react', radius: 190, phrases: ['¡TOBYYY! ¿DÓNDE TE METISTE?', '¡TOBY! ¡VENÍ, TOBY!'], cooldown: 6 },
+      {
+        kind: 'missionGiver',
+        missionId: 'lost-dog',
+        radius: 80,
+        offer: '¿VISTE A MI PERRITO? ¡SE ME ESCAPÓ!',
+        reminder: '¡ESE ES MI TOBY! ¡TRAÉMELO!',
+        thanks: '¡TOBY! ¡GRACIAS, GRACIAS!',
+      },
+    ],
+  },
+  // La vecina que riega: su chorro lo maneja systems/WaterJetSystem.ts
+  // (lógica pura en world/sprinkler.ts); estos datos quedan como ficha.
   senoraRegando: {
     id: 'senoraRegando',
     name: 'LA SEÑORA QUE RIEGA LA VEREDA',

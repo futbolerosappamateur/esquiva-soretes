@@ -97,13 +97,25 @@ describe('Migración del guardado', () => {
     expect(s.seenUnlocks).toEqual(['san-telmo']);
   });
 
-  it('la campaña tiene San Telmo y Monserrat jugables con 3 niveles de 5 cuadras', () => {
-    for (const id of ['san-telmo', 'monserrat']) {
+  it('un barrio donde ya se completó algún nivel nunca queda bloqueado (aunque cambie el orden de la campaña)', () => {
+    const s = migrateSave({ version: 2, barrios: { monserrat: { unlocked: false, completed: false, levels: { 'monserrat-1': { completed: true, stars: 2, bestScore: 5000, plays: 2 } } } } });
+    expect(isBarrioUnlocked(s, 'monserrat')).toBe(true);
+    expect(isLevelUnlocked(s, { barrioId: 'monserrat', levelIndex: 1 })).toBe(true);
+  });
+
+  it('después de Monserrat viene Versalles', () => {
+    const s = createDefaultSave();
+    for (const id of ['san-telmo', 'monserrat']) for (let i = 0; i < 3; i++) applyLevelResult(s, { barrioId: id, levelIndex: i }, { score: 1000, stars: 1 });
+    expect(isBarrioUnlocked(s, 'versalles')).toBe(true);
+  });
+
+  it('la campaña tiene San Telmo, Monserrat y Versalles jugables con 3 niveles de 5 cuadras', () => {
+    for (const id of ['san-telmo', 'monserrat', 'versalles']) {
       const b = getBarrio(id)!;
       expect(b.levels).toHaveLength(3);
       for (const l of b.levels) expect(l.blocks).toHaveLength(5);
     }
-    expect(BARRIOS.filter((b) => b.levels.length > 0).map((b) => b.id)).toEqual(['san-telmo', 'monserrat']);
+    expect(BARRIOS.filter((b) => b.levels.length > 0).map((b) => b.id)).toEqual(['san-telmo', 'monserrat', 'versalles']);
   });
 });
 
@@ -115,7 +127,7 @@ describe('Checkpoints y monedas', () => {
     score.addBonus(1000);
     run.coins = 12;
     expect(takeUnbankedCoins(run)).toBe(12); // se acreditan al llegar a la esquina
-    run.checkpoint = { blocksCompleted: 1, x: 3700, y: 180, score: score.toSnapshot(), coins: run.coins, crossingsDone: 0, missionDone: false, carHits: 0 };
+    run.checkpoint = { blocksCompleted: 1, x: 3700, y: 180, score: score.toSnapshot(), coins: run.coins, crossingsDone: 0, missionDone: false, carHits: 0, elapsedMs: 0, splits: [], missionsDone: 0 };
     // Después del checkpoint juega un poco más y pierde.
     run.coins = 20;
     run.lives = 0;
@@ -135,7 +147,7 @@ describe('Checkpoints y monedas', () => {
 
   it('repetir una misión desde el checkpoint no da monedas infinitas', () => {
     const run = createRun(ST);
-    run.checkpoint = { blocksCompleted: 1, x: 3700, y: 180, score: new ScoreSystem(0).toSnapshot(), coins: 0, crossingsDone: 0, missionDone: false, carHits: 0 };
+    run.checkpoint = { blocksCompleted: 1, x: 3700, y: 180, score: new ScoreSystem(0).toSnapshot(), coins: 0, crossingsDone: 0, missionDone: false, carHits: 0, elapsedMs: 0, splits: [], missionsDone: 0 };
     let wallet = 0;
     // Tres intentos: en cada uno completa la misión (+21 monedas) y pierde antes de la siguiente esquina.
     let current = run;

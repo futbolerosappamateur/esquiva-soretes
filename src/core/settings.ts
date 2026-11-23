@@ -7,12 +7,15 @@ export interface Settings {
   music: boolean;
   /** Volumen general entre 0 y 1. */
   volume: number;
+  /** Ya se mostró el aviso de saltar con X cuando el teclado no toma el espacio en diagonal. */
+  diagonalJumpTip: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   sfx: true,
   music: true,
   volume: 0.7,
+  diagonalJumpTip: false,
 };
 
 type Listener = (settings: Readonly<Settings>) => void;

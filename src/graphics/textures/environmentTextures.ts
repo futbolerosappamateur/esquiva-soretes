@@ -315,6 +315,16 @@ function drawDecals(textures: Phaser.Textures.TextureManager): void {
   const drain = new PixelCanvas(14, 6);
   drain.rect(0, 0, 14, 6, '#4a4744');
   for (let i = 1; i < 13; i += 2) drain.vline(i, 1, 4, '#26231f');
+  // Vereda rota (barrios con `brokenSidewalk` alto): baldosa que falta, grieta larga y cascotes.
+  const hole = new PixelCanvas(16, 8);
+  hole.rect(0, 0, 16, 8, '#77736d').rect(1, 1, 14, 6, '#5f5c58');
+  hole.px(3, 2, '#8d8981').px(9, 4, '#8d8981').px(12, 2, '#6c6964').px(6, 5, '#6c6964').hline(1, 1, 14, '#4f4c49');
+  hole.px(0, 0, '#a19c92').px(15, 7, '#a19c92').px(15, 0, '#8f8a81');
+  const bigCrack = new PixelCanvas(28, 9);
+  bigCrack.line(0, 2, 6, 4, '#7a6f5b').line(6, 4, 12, 3, '#7a6f5b').line(12, 3, 17, 6, '#7a6f5b').line(17, 6, 23, 5, '#7a6f5b').line(23, 5, 27, 8, '#7a6f5b');
+  bigCrack.line(12, 3, 14, 0, '#8f8166').line(17, 6, 18, 8, '#8f8166');
+  const rubble = new PixelCanvas(10, 4);
+  rubble.rect(0, 2, 2, 2, '#a39e94').rect(4, 1, 2, 2, '#8a857c').px(7, 3, '#a39e94').px(9, 2, '#8a857c').px(3, 3, '#77736d');
   packStrip(textures, TEX.decals, [
     { name: 'crack1', canvas: crack1 },
     { name: 'crack2', canvas: crack2 },
@@ -326,6 +336,9 @@ function drawDecals(textures: Phaser.Textures.TextureManager): void {
     { name: 'paper', canvas: paper },
     { name: 'butt', canvas: butt },
     { name: 'drain', canvas: drain },
+    { name: 'hole', canvas: hole },
+    { name: 'bigCrack', canvas: bigCrack },
+    { name: 'rubble', canvas: rubble },
   ]);
 }
 

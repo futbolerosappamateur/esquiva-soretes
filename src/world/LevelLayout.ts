@@ -61,6 +61,25 @@ export interface NpcPlacement {
   maxX: number;
 }
 
+/**
+ * Persona que camina por la zona jugable (la gente del centro). Esquiva
+ * soretes y árboles; si va atenta, también se corre para no chocar al pibe.
+ */
+export interface CrowdPlacement {
+  kind: NpcKind;
+  x: number;
+  /** Profundidad por la que arranca caminando. */
+  y: number;
+  dir: 1 | -1;
+  /** Velocidad (px/s). */
+  speed: number;
+  /** Va mirando el celular: no se corre para no chocar al pibe. */
+  distracted: boolean;
+  /** Tramo de vereda por el que camina (da la vuelta en las esquinas). */
+  minX: number;
+  maxX: number;
+}
+
 /** Una cuadra del nivel. */
 export interface BlockSegment {
   index: number;
@@ -94,15 +113,25 @@ export interface CoinPlacement {
   y: number;
 }
 
-/** Elementos de la misión "juntá la basura y llevala al tacho". */
+/** Elementos de la misión del nivel (la basura del portero o el perro perdido). */
 export interface MissionPlacement {
   id: string;
   blockIndex: number;
-  /** Personaje que da la misión (el portero barriendo la vereda). */
+  /** Personaje que da (o recibe) la misión: el portero barriendo, la dueña del perro... */
   giver: { npc: string; x: number; y: number };
+  /** Residuos (frame de la hoja de basura) o el perro perdido (frame 'dog'). */
   items: { x: number; y: number; frame: string }[];
-  /** Tacho donde se entrega (es un prop sólido del nivel). */
+  /** Dónde se entrega: el tacho (prop sólido) o la dueña del perro. */
   target: { x: number; y: number };
+}
+
+/** Vecina que riega la vereda (el chorro siempre deja libre el carril del cordón). */
+export interface WaterLadyPlacement {
+  x: number;
+  y: number;
+  blockIndex: number;
+  /** Desfase (s) del ciclo, para que no rieguen todas sincronizadas. */
+  offset: number;
 }
 
 export interface LevelLayout {
@@ -120,8 +149,11 @@ export interface LevelLayout {
   cars: CarPlacement[];
   pigeons: PigeonPlacement[];
   npcs: NpcPlacement[];
+  /** Gente caminando por la zona jugable (según los rasgos del barrio). */
+  crowd: CrowdPlacement[];
   coins: CoinPlacement[];
   mission: MissionPlacement | null;
+  waterLadies: WaterLadyPlacement[];
   /** Calle transversal decorativa de la esquina final (sin tránsito). */
   crossStreetX: number;
   finalStreet: string | null;

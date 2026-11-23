@@ -1,6 +1,7 @@
-import { blockLengthFor, CAMPAIGN_TUNING, CROSSING_TUNING, PIXELS_PER_METER, SCORING, STAR_RULES } from '../config/balance';
+import { blockLengthFor, CAMPAIGN_TUNING, CROSSING_TUNING, PIXELS_PER_METER, SCORING, SPEED_BONUS, STAR_RULES, WATER_TUNING } from '../config/balance';
 import { lerp } from '../core/math';
-import { getLevel, seedFromString, type BarrioDef, type LevelDef, type LevelRef } from '../data/campaign';
+import { traitsWith, type BarrioTraits } from '../data/barrioTraits';
+import { getBarrio, getLevel, seedFromString, type BarrioDef, type LevelDef, type LevelRef } from '../data/campaign';
 import { getEnvironment, type EnvironmentDef } from '../data/environments';
 import { OBSTACLE_TYPES } from '../entities/obstacles/ObstacleTypes';
 import { generateLevelLayout, type BlockSpec } from './LevelGenerator';
@@ -19,6 +20,7 @@ export interface BuiltLevel {
   level: LevelDef;
   env: EnvironmentDef;
   theme: NeighborhoodTheme;
+  traits: BarrioTraits;
   seed: number;
   layout: LevelLayout;
   stars: StarThresholds;
@@ -27,6 +29,14 @@ export interface BuiltLevel {
 export interface BuildOverrides {
   seed?: number | null;
   environment?: string | null;
+  /** Usa los rasgos de otro barrio (para probarlos en un nivel que ya existe). */
+  traitsFrom?: string | null;
+}
+
+/** Rasgos con los que se arma un nivel del barrio (o los de otro barrio, para probar). */
+export function traitsFor(barrio: BarrioDef, traitsFrom?: string | null): BarrioTraits {
+  const source = traitsFrom ? getBarrio(traitsFrom) : undefined;
+  return traitsWith((source ?? barrio).traits);
 }
 
 /** Cuadras del nivel con su largo y su tramo de dificultad. */
@@ -53,6 +63,7 @@ export function buildLevel(ref: LevelRef, overrides: BuildOverrides = {}): Built
   const env = getEnvironment(overrides.environment ?? level.environment);
   const theme = THEMES[barrio.theme] ?? THEMES['san-telmo'];
   const seed = overrides.seed ?? levelSeed(level);
+  const traits = traitsFor(barrio, overrides.traitsFrom);
   const layout = generateLevelLayout({
     theme,
     env,
@@ -60,8 +71,11 @@ export function buildLevel(ref: LevelRef, overrides: BuildOverrides = {}): Built
     blocks: blockSpecsFor(level),
     traffic: level.traffic ?? 1,
     missionBlock: level.missionBlock ?? null,
+    missionId: level.missionId,
+    waterBlocks: level.waterBlocks,
+    traits,
   });
-  return { ref, barrio, level, env, theme, seed, layout, stars: level.stars ?? starThresholds(layout) };
+  return { ref, barrio, level, env, theme, traits, seed, layout, stars: level.stars ?? starThresholds(layout) };
 }
 
 /**
@@ -76,7 +90,8 @@ export function referenceScore(layout: LevelLayout): number {
     meters * SCORING.pointsPerMeter +
     dodgeables * SCORING.dodgePoints * STAR_RULES.referenceMultiplier +
     layout.crossings.length * (CROSSING_TUNING.greenBonus + CROSSING_TUNING.cleanBonus) +
-    layout.blocks.length * SCORING.perfectBlockBonus * 0.5
+    layout.blocks.length * SCORING.perfectBlockBonus * 0.5 +
+    layout.waterLadies.length * WATER_TUNING.dodgeBonus
   );
 }
 
@@ -92,6 +107,20 @@ export function starsFor(score: number, thresholds: StarThresholds): number {
   if (score >= thresholds.three) return 3;
   if (score >= thresholds.two) return 2;
   return 1;
+}
+
+/** Tiempos (segundos) para el bonus de velocidad: excelente, bueno y aceptable. */
+export interface SpeedTargets {
+  excellent: number;
+  good: number;
+  ok: number;
+}
+
+/** Umbrales por defecto: fracciones de la duración estimada del nivel (ver SPEED_BONUS). */
+export function speedTargets(layout: LevelLayout): SpeedTargets {
+  const est = estimatedDuration(layout);
+  const f = SPEED_BONUS.fractions;
+  return { excellent: Math.round(est * f.excellent), good: Math.round(est * f.good), ok: Math.round(est * f.ok) };
 }
 
 /** Duración estimada (segundos) de un nivel en una partida normal. */

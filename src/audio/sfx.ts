@@ -28,7 +28,18 @@ export type SfxName =
   | 'missionDone'
   | 'unlock'
   | 'star'
-  | 'checkpoint';
+  | 'checkpoint'
+  | 'dash'
+  | 'doubleJump'
+  | 'turbo'
+  | 'sprint'
+  | 'sweep'
+  | 'water'
+  | 'woof'
+  | 'whistle'
+  | 'tangle'
+  | 'abilityReady'
+  | 'record';
 
 type SfxFn = (s: SynthContext, param: number) => void;
 
@@ -206,5 +217,47 @@ export const SFX: Record<SfxName, SfxFn> = {
   },
   checkpoint: (s) => {
     melody(s, [['A5', 0.06], ['D6', 0.06], ['A6', 0.12]], 'triangle', 0.12);
+  },
+  // --- v0.3: habilidades y récords ----------------------------------------
+  dash: (s) => {
+    noise(s, { dur: 0.16, vol: 0.22, filter: 'bandpass', freq: 1200, to: 4200, q: 1.5 });
+    tone(s, { type: 'square', freq: 520, to: 980, dur: 0.08, vol: 0.06 });
+  },
+  doubleJump: (s) => {
+    tone(s, { type: 'square', freq: 420, to: 980, dur: 0.12, vol: 0.12, filter: { type: 'lowpass', freq: 3500 } });
+    tone(s, { type: 'triangle', freq: 840, to: 1960, dur: 0.1, vol: 0.06, start: 0.03 });
+  },
+  turbo: (s) => {
+    tone(s, { type: 'sawtooth', freq: 140, to: 620, dur: 0.45, vol: 0.12, filter: { type: 'lowpass', freq: 1800 } });
+    noise(s, { dur: 0.4, vol: 0.08, filter: 'bandpass', freq: 800, to: 3000, q: 1.2 });
+  },
+  sprint: (s) => {
+    melody(s, [['E5', 0.06], ['A5', 0.06], ['E6', 0.12]], 'square', 0.08);
+  },
+  sweep: (s) => {
+    noise(s, { dur: 0.32, vol: 0.2, filter: 'highpass', freq: 1800, to: 900 });
+    noise(s, { dur: 0.2, vol: 0.12, filter: 'highpass', freq: 2400, start: 0.18 });
+  },
+  water: (s) => {
+    noise(s, { dur: 1.6, vol: 0.14, filter: 'bandpass', freq: 2600, q: 0.8 });
+  },
+  woof: (s) => {
+    for (const start of [0, 0.18]) {
+      tone(s, { type: 'sawtooth', freq: 300, to: 180, dur: 0.1, vol: 0.18, start, filter: { type: 'lowpass', freq: 1100 } });
+      noise(s, { dur: 0.08, vol: 0.08, filter: 'bandpass', freq: 700, start });
+    }
+  },
+  whistle: (s) => {
+    tone(s, { type: 'sine', freq: 2600, dur: 0.5, vol: 0.13, hold: true, vibrato: { rate: 28, depth: 120 } });
+  },
+  tangle: (s) => {
+    tone(s, { type: 'triangle', freq: 330, to: 220, dur: 0.25, vol: 0.12 });
+  },
+  abilityReady: (s) => {
+    tone(s, { type: 'triangle', freq: noteToFreq('E6'), dur: 0.08, vol: 0.06 });
+  },
+  record: (s) => {
+    melody(s, [['C5', 0.08], ['E5', 0.08], ['G5', 0.08], ['C6', 0.08], ['G5', 0.08], ['C6', 0.3]], 'square', 0.1);
+    chord(s, ['C5', 'E5', 'G5'], 0.56, 0.4, 0.05);
   },
 };

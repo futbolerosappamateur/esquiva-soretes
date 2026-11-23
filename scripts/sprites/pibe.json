@@ -1,0 +1,199 @@
+{
+  "look": "pibe",
+  "style": "smooth",
+  "renderScales": [
+    4,
+    6
+  ],
+  "targetUnits": 42,
+  "reference": "idle0",
+  "clean": {
+    "minAlpha": 128,
+    "fringe": {
+      "minR": 200,
+      "maxG": 60,
+      "maxB": 60,
+      "maxAlpha": 250
+    }
+  },
+  "minArea": 300,
+  "mergeGap": 12,
+  "sheets": {
+    "caminar": {
+      "source": "art/source/pibe-plastilina-caminar.png"
+    },
+    "correr": {
+      "source": "art/source/pibe-plastilina-correr.png"
+    },
+    "saltar": {
+      "source": "art/source/pibe-plastilina-saltar.png",
+      "scale": 1.07
+    },
+    "poder": {
+      "source": "art/source/pibe-plastilina-poder.png"
+    },
+    "sorete": {
+      "source": "art/source/pibe-plastilina-sorete.png",
+      "scale": 1.12
+    }
+  },
+  "portrait": {
+    "sheet": "poder",
+    "sprite": [
+      0,
+      0
+    ]
+  },
+  "frames": {
+    "idle0": [
+      "poder",
+      0,
+      0
+    ],
+    "idle1": [
+      "poder",
+      1,
+      2
+    ],
+    "blink": [
+      "poder",
+      0,
+      0
+    ],
+    "walk0": [
+      "caminar",
+      0,
+      0
+    ],
+    "walk1": [
+      "caminar",
+      0,
+      1
+    ],
+    "walk2": [
+      "caminar",
+      0,
+      2
+    ],
+    "walk3": [
+      "caminar",
+      0,
+      3
+    ],
+    "walk4": [
+      "caminar",
+      1,
+      0
+    ],
+    "walk5": [
+      "caminar",
+      1,
+      1
+    ],
+    "walk6": [
+      "caminar",
+      1,
+      2
+    ],
+    "walk7": [
+      "caminar",
+      1,
+      3
+    ],
+    "run0": [
+      "correr",
+      0,
+      0
+    ],
+    "run1": [
+      "correr",
+      0,
+      1
+    ],
+    "run2": [
+      "correr",
+      0,
+      2
+    ],
+    "run3": [
+      "correr",
+      0,
+      3
+    ],
+    "run4": [
+      "correr",
+      1,
+      0
+    ],
+    "run5": [
+      "correr",
+      1,
+      1
+    ],
+    "run6": [
+      "correr",
+      1,
+      2
+    ],
+    "run7": [
+      "correr",
+      1,
+      3
+    ],
+    "jumpPrep": [
+      "saltar",
+      0,
+      0
+    ],
+    "jumpUp": [
+      "saltar",
+      0,
+      2
+    ],
+    "jumpDown": [
+      "saltar",
+      1,
+      1
+    ],
+    "special0": [
+      "poder",
+      0,
+      2
+    ],
+    "stepShock": [
+      "sorete",
+      0,
+      1
+    ],
+    "stepLift": [
+      "sorete",
+      0,
+      3
+    ],
+    "stepLook": [
+      "sorete",
+      1,
+      0
+    ],
+    "stepDisgust": [
+      "sorete",
+      1,
+      1
+    ],
+    "dizzy": [
+      "sorete",
+      0,
+      2
+    ],
+    "win0": [
+      "saltar",
+      1,
+      0
+    ],
+    "win1": [
+      "saltar",
+      0,
+      2
+    ]
+  }
+}

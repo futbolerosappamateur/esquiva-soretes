@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { PLAYER_TUNING } from '../config/balance';
 import { JumpBuffer, KeyboardInputState } from './KeyboardInputState';
 import { touchState } from './TouchState';
+import { uniqueKeyEvents } from './keyEvents';
 
 /**
  * Unifica teclado y controles táctiles en una sola lectura por cuadro:
@@ -16,6 +17,8 @@ export class InputController {
   readonly keys = new KeyboardInputState();
   private readonly jumpBuffer = new JumpBuffer(PLAYER_TUNING.jumpBufferTime);
   private pauseRequested = false;
+  private specialRequested = false;
+  private restartRequested = false;
   private readonly keyboard: Phaser.Input.Keyboard.KeyboardPlugin | null;
 
   constructor(scene: Phaser.Scene) {
@@ -23,25 +26,25 @@ export class InputController {
     if (this.keyboard) {
       // Evita que las flechas y la barra espaciadora muevan la página.
       this.keyboard.addCapture('UP,DOWN,LEFT,RIGHT,SPACE');
-      this.keyboard.on('keydown', this.onKeyDown, this);
-      this.keyboard.on('keyup', this.onKeyUp, this);
+      this.keyboard.on('keydown', this.onKeyDown);
+      this.keyboard.on('keyup', this.onKeyUp);
       scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-        this.keyboard?.off('keydown', this.onKeyDown, this);
-        this.keyboard?.off('keyup', this.onKeyUp, this);
+        this.keyboard?.off('keydown', this.onKeyDown);
+        this.keyboard?.off('keyup', this.onKeyUp);
       });
     }
   }
 
-  private onKeyDown(event: KeyboardEvent): void {
-    this.keys.keyDown(event.code, event.repeat);
-  }
+  private readonly onKeyDown = uniqueKeyEvents((event) => this.keys.keyDown(event.code, event.repeat));
 
-  private onKeyUp(event: KeyboardEvent): void {
-    this.keys.keyUp(event.code);
-  }
+  private readonly onKeyUp = uniqueKeyEvents((event) => this.keys.keyUp(event.code));
+
+  /** Se está moviendo en diagonal con el teclado (ahí muchos teclados no toman la barra espaciadora). */
+  keyboardDiagonal = false;
 
   update(dt: number): void {
     let { x, y } = this.keys.direction();
+    this.keyboardDiagonal = x !== 0 && y !== 0;
     if (x === 0 && y === 0 && touchState.active) {
       x = touchState.x;
       y = touchState.y;
@@ -55,6 +58,27 @@ export class InputController {
     const touchJump = touchState.consumeJump();
     if (keyJump || touchJump) this.jumpBuffer.request();
     if (this.keys.consumePausePress() || touchState.consumePause()) this.pauseRequested = true;
+    const keySpecial = this.keys.consumeSpecialPress();
+    const touchSpecial = touchState.consumeSpecial();
+    if (keySpecial || touchSpecial) this.specialRequested = true;
+    if (this.keys.consumeRestartPress()) this.restartRequested = true;
+  }
+
+  /** Hay un salto pedido todavía sin usar (para el salto doble en el aire). */
+  get jumpPending(): boolean {
+    return this.jumpBuffer.pending;
+  }
+
+  consumeSpecial(): boolean {
+    const v = this.specialRequested;
+    this.specialRequested = false;
+    return v;
+  }
+
+  consumeRestart(): boolean {
+    const v = this.restartRequested;
+    this.restartRequested = false;
+    return v;
   }
 
   /** Devuelve true si hay un salto pedido (y lo consume). */
@@ -75,6 +99,8 @@ export class InputController {
     this.moveY = 0;
     this.jumpBuffer.clear();
     this.pauseRequested = false;
+    this.specialRequested = false;
+    this.restartRequested = false;
     touchState.reset();
   }
 }

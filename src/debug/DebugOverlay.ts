@@ -3,6 +3,7 @@ import { GAME_WIDTH } from '../config/constants';
 import type { GameScene } from '../scenes/GameScene';
 import { addText } from '../ui/text';
 import { PROP_DEFS } from '../world/LevelLayout';
+import { uniqueKeyEvents } from '../input/keyEvents';
 
 /**
  * Herramientas de desarrollo, activables desde la URL:
@@ -11,7 +12,9 @@ import { PROP_DEFS } from '../world/LevelLayout';
  *   ?level=san-telmo-2  arranca directo en ese nivel (sin pasar por el mapa)
  *   ?block=3            empieza en la esquina anterior a la cuadra 3
  *   ?env=night          fuerza una ambientación (day, night, autumn, rain...)
- *   ?unlockall          desbloquea todos los barrios con niveles (sólo para probar)
+ *   ?rasgos=villa-lugano  arma el nivel con los rasgos de otro barrio (gente, árboles, vereda rota...)
+ *   ?hora=19:30 / ?hora=real  prototipo de luz según la hora (de noche usa la ambientación de noche)
+ *   ?unlockall          desbloquea todos los barrios con niveles y todos los personajes (sólo para probar)
  */
 export interface DebugFlags {
   enabled: boolean;
@@ -19,6 +22,10 @@ export interface DebugFlags {
   block: number | null;
   level: string | null;
   env: string | null;
+  /** Barrio cuyos rasgos se usan para armar el nivel (?rasgos=). */
+  traits: string | null;
+  /** Hora para el prototipo de luz (?hora=19:30 o ?hora=real). */
+  hour: string | null;
   unlockAll: boolean;
 }
 
@@ -34,6 +41,8 @@ function readFlags(): DebugFlags {
     block: parsedBlock,
     level: params.get('level'),
     env: params.get('env'),
+    traits: params.get('rasgos'),
+    hour: params.get('hora'),
     unlockAll: params.has('unlockall'),
   };
 }
@@ -48,7 +57,7 @@ export class DebugOverlay {
   constructor(private readonly scene: GameScene) {
     this.g = scene.add.graphics().setDepth(5000);
     this.info = addText(scene, 4, 46, '', { outline: true, color: 0x9be04f, scrollFactor: 0, depth: 5001 });
-    scene.input.keyboard?.on('keydown-F2', this.toggle, this);
+    scene.input.keyboard?.on('keydown-F2', uniqueKeyEvents(() => this.toggle()));
   }
 
   private toggle(): void {

@@ -56,7 +56,50 @@ function sweeperFrames(look: CharacterLook): { name: string; canvas: PixelCanvas
   });
 }
 
+const WAVE_POSE: Pose = { ...IDLE, head: 'happy', frontArm: L(P(28, 22), P(31, 17), P(33, 12)), backArm: L(P(21, 23), P(19, 28), P(18, 31)) };
+
+/** Manguera: del pico (en la mano) hasta el piso, con un rollo al costado. */
+function drawHose(pc: PixelCanvas, nozzle: [number, number] | null, hand: [number, number]): void {
+  const green = '#3f7a4a';
+  pc.line(hand[0], hand[1], 15, 45, '#21142b', 3).line(hand[0], hand[1], 15, 45, green, 1);
+  pc.rect(9, 42, 9, 4, '#21142b');
+  pc.rect(10, 43, 7, 2, green);
+  if (nozzle) {
+    pc.rect(nozzle[0], nozzle[1], 4, 4, '#21142b');
+    pc.rect(nozzle[0] + 1, nozzle[1] + 1, 2, 2, '#c4c8d2');
+  }
+}
+
+/** La vecina que riega: quieta, regando (dos cuadros) y saludando. */
+function wateringFrames(look: CharacterLook): { name: string; canvas: PixelCanvas }[] {
+  const water = (dy: number): Pose => ({ ...IDLE, head: 'focus', frontArm: L(P(28, 23), P(32, 25 + dy), P(36, 25 + dy)), backArm: L(P(21, 23), P(25, 26), P(30, 26 + dy)) });
+  const frames: { name: string; pose: Pose; nozzle: [number, number] | null; hand: [number, number] }[] = [
+    { name: 'idle', pose: { ...IDLE }, nozzle: [27, 31], hand: [29, 32] },
+    { name: 'water0', pose: water(0), nozzle: [36, 23], hand: [31, 27] },
+    { name: 'water1', pose: water(1), nozzle: [36, 24], hand: [31, 28] },
+    { name: 'wave', pose: WAVE_POSE, nozzle: null, hand: [19, 31] },
+  ];
+  return frames.map(({ name, pose, nozzle, hand }) => {
+    const pc = renderPose(pose, look);
+    drawHose(pc, nozzle, hand);
+    return { name, canvas: pc };
+  });
+}
+
+/** Personas que sólo esperan y saludan (la dueña del perro perdido). */
+function waverFrames(look: CharacterLook): { name: string; canvas: PixelCanvas }[] {
+  return [
+    { name: 'idle', canvas: renderPose({ ...IDLE }, look) },
+    { name: 'wave', canvas: renderPose(WAVE_POSE, look) },
+  ];
+}
+
+/** Looks de NPC que tienen saludo (las animaciones se registran con esta lista). */
+export const WAVING_NPC_LOOKS = ['portero', 'portero-alt', 'duena', 'senora'];
+
 export function generateNpcActorTextures(textures: Phaser.Textures.TextureManager): void {
   buildSheet(textures, TEX.npc('portero'), sweeperFrames(getLook('portero')), 5);
   buildSheet(textures, TEX.npc('portero-alt'), sweeperFrames(getLook('portero-alt')), 5);
+  buildSheet(textures, TEX.npc('senora'), wateringFrames(getLook('senora')), 4);
+  buildSheet(textures, TEX.npc('duena'), waverFrames(getLook('duena')), 2);
 }

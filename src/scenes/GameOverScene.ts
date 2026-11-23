@@ -11,6 +11,8 @@ import { ButtonMenu, type MenuItem } from '../ui/ButtonMenu';
 import { addDim, addPanel } from '../ui/Panel';
 import { addText } from '../ui/text';
 import type { LevelResult } from './GameScene';
+import { online } from '../social/onlineSession';
+import { submissionLabel } from '../social/submissionLabel';
 
 export class GameOverScene extends Phaser.Scene {
   private result!: LevelResult;
@@ -40,7 +42,8 @@ export class GameOverScene extends Phaser.Scene {
     }
 
     addText(this, cx, 44, t.message, { color: UI_COLORS.yellow, origin: [0.5, 0], align: 'center', maxWidth: 360 });
-    addText(this, cx, 68, `${r.barrioName} · NIVEL ${r.levelNumber} · CUADRA ${Math.min(r.blocksCompleted + 1, r.totalBlocks)}/${r.totalBlocks}`, {
+    const modeLabel = r.mode === 'timeTrial' ? ` · ${TEXTS2.hud.timeTrial}` : '';
+    addText(this, cx, 68, `${r.barrioName} · NIVEL ${r.levelNumber}${modeLabel} · CUADRA ${Math.min(r.blocksCompleted + 1, r.totalBlocks)}/${r.totalBlocks}`, {
       outline: false,
       color: UI_COLORS.gray,
       origin: [0.5, 0],
@@ -74,6 +77,16 @@ export class GameOverScene extends Phaser.Scene {
     make(TEXTS2.gameOver.map, () => this.toScene(SCENES.WORLD_MAP));
     make(t.menu, () => this.toScene(SCENES.MENU));
     new ButtonMenu(this, items, { onBack: () => this.toScene(SCENES.WORLD_MAP) });
+
+    // Estado del envío a la cuenta online (se actualiza solo cuando responde el servidor).
+    const onlineLine = addText(this, cx, 246, '', { outline: false, origin: [0.5, 0] });
+    const refreshOnline = () => {
+      const label = submissionLabel(r.onlineRunId, false);
+      onlineLine.setText(label?.text ?? '').setTint(label?.color ?? UI_COLORS.gray);
+    };
+    refreshOnline();
+    const offOnline = online.on(refreshOnline);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offOnline);
   }
 
   private retryCheckpoint(): void {
@@ -83,7 +96,8 @@ export class GameOverScene extends Phaser.Scene {
 
   private restartLevel(): void {
     this.scene.stop(SCENES.HUD);
-    this.scene.start(SCENES.GAME, { run: createRun(this.result.ref, this.result.run.seed) });
+    const r = this.result.run;
+    this.scene.start(SCENES.GAME, { run: createRun(this.result.ref, { seed: r.seed, mode: r.mode, characterId: r.characterId }) });
   }
 
   private toScene(key: string): void {

@@ -17,6 +17,8 @@ export class TrafficLight {
   elapsed: number;
   /** Segundos que se estiró un "todo rojo" porque la senda no estaba despejada. */
   holdTime = 0;
+  /** Duraciones especiales para el ciclo actual (silbatazo del policía). */
+  private overrides: Partial<Record<LightPhase, number>> = {};
 
   constructor(
     readonly timing: LightTiming,
@@ -28,7 +30,7 @@ export class TrafficLight {
   }
 
   duration(phase: LightPhase = this.phase): number {
-    return this.timing[phase];
+    return this.overrides[phase] ?? this.timing[phase];
   }
 
   get cycleLength(): number {
@@ -51,9 +53,44 @@ export class TrafficLight {
       }
       this.elapsed -= this.duration();
       this.phase = PHASE_ORDER[(PHASE_ORDER.indexOf(this.phase) + 1) % PHASE_ORDER.length];
+      if (this.phase === 'vehGreen') this.overrides = {};
       changed = this.phase;
     }
     return changed;
+  }
+
+  /**
+   * Silbatazo: corta el verde de los autos (con un amarillo corto) y habilita
+   * el paso peatonal durante `walk` segundos. El "todo rojo" sigue esperando
+   * a que la senda quede libre, así que los autos que ya no llegaban a frenar
+   * terminan de cruzar antes del verde peatonal.
+   */
+  forceWalk(walk: number, quickYellow = 0.7): boolean {
+    switch (this.phase) {
+      case 'vehGreen':
+        this.phase = 'vehYellow';
+        this.elapsed = 0;
+        this.overrides.vehYellow = quickYellow;
+        this.overrides.pedGreen = walk;
+        return true;
+      case 'vehYellow':
+        this.overrides.vehYellow = Math.min(this.duration('vehYellow'), this.elapsed + quickYellow);
+        this.overrides.pedGreen = walk;
+        return true;
+      case 'allRed1':
+        this.overrides.pedGreen = walk;
+        return true;
+      case 'pedGreen':
+        this.overrides.pedGreen = Math.max(this.duration('pedGreen'), this.elapsed + walk);
+        return true;
+      case 'pedFlash':
+      case 'allRed2':
+        // Los autos todavía están frenados: se puede volver al verde peatonal sin riesgo.
+        this.phase = 'pedGreen';
+        this.elapsed = 0;
+        this.overrides.pedGreen = walk;
+        return true;
+    }
   }
 
   /** Fuerza una fase (por ejemplo, para sincronizar con la llegada del jugador). */

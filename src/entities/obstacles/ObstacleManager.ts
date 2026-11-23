@@ -27,7 +27,8 @@ export class ObstacleManager {
     this.list = [...placements].sort((a, b) => a.x - b.x).map((p) => new Obstacle(scene, p, effects));
   }
 
-  update(player: Player, events: ObstacleEvents): void {
+  /** `shielded`: protección momentánea contra soretes (esquive rápido). */
+  update(player: Player, events: ObstacleEvents, shielded = false): void {
     if (player.state !== 'normal') return;
     const px = player.x;
     const py = player.y;
@@ -48,7 +49,7 @@ export class ObstacleManager {
           continue;
         }
         // Si lo pisó siendo invulnerable, no se lo cobra hasta que salga y lo vuelva a pisar.
-        if (player.canBeHit && !o.safeContact) {
+        if (player.canBeHit && !shielded && !o.safeContact) {
           events.onHazard(o);
           return;
         }

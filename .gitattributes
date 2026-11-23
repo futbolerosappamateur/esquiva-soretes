@@ -1,0 +1,4 @@
+# Finales de línea LF en todo el proyecto (Windows incluido).
+* text=auto eol=lf
+*.png binary
+*.jpg binary

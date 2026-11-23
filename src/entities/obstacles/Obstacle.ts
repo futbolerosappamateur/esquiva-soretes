@@ -24,6 +24,8 @@ export class Obstacle {
   safeContact = false;
   readonly sprite: Phaser.GameObjects.Image;
   private readonly cover?: Phaser.GameObjects.Image;
+  /** Un sorete camuflado que ya quedó a la vista (escobazo, manguerazo). */
+  revealed = false;
   private readonly stinkSprite?: Phaser.GameObjects.Sprite;
   private readonly swarm?: FlySwarm;
   private visible = true;
@@ -76,6 +78,14 @@ export class Obstacle {
     this.stinkSprite?.setAlpha(1);
   }
 
+  /** Saca las hojas de encima: el sorete escondido queda a la vista (sigue siendo un obstáculo). */
+  reveal(): boolean {
+    if (this.def.id !== 'camo' || this.revealed || this.state !== 'active') return false;
+    this.revealed = true;
+    this.cover?.destroy();
+    return true;
+  }
+
   setVisible(visible: boolean): void {
     if (visible === this.visible) return;
     this.visible = visible;
@@ -86,7 +96,7 @@ export class Obstacle {
 
   destroy(): void {
     this.sprite.destroy();
-    this.cover?.destroy();
+    if (!this.revealed) this.cover?.destroy();
     this.stinkSprite?.destroy();
     if (this.swarm) this.effects.removeSwarm(this.swarm);
   }

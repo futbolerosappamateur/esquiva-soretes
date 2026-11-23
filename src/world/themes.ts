@@ -1,4 +1,4 @@
-import { CORNER_SPECS, FACADE_SPECS } from '../graphics/facadeSpecs';
+import { CORNER_SPECS, FACADE_SPECS, VERSALLES_SPECS } from '../graphics/facadeSpecs';
 
 /**
  * Un barrio define la estética de sus cuadras. Para sumar un barrio nuevo
@@ -20,9 +20,25 @@ export interface NeighborhoodTheme {
 }
 
 const widths: Record<string, number> = {};
-for (const spec of [...FACADE_SPECS, ...CORNER_SPECS]) widths[spec.id] = spec.width;
+for (const spec of [...FACADE_SPECS, ...CORNER_SPECS, ...VERSALLES_SPECS]) widths[spec.id] = spec.width;
 
 export const THEMES: Record<string, NeighborhoodTheme> = {
+  // Casas bajas (de una planta y algunas de dos), muchos árboles y vecinos hinchas de Vélez.
+  versalles: {
+    id: 'versalles',
+    name: 'VERSALLES',
+    facadeIds: [...VERSALLES_SPECS.map((s) => s.id), 'casa-rosa', 'casa-ocre', 'casa-bordo'],
+    facadeWidths: widths,
+    cornerStartId: 'esquina-inicio',
+    cornerEndId: 'esquina-final',
+    trees: [
+      { variant: 0, weight: 4 },
+      { variant: 1, weight: 3 },
+      { variant: 2, weight: 1 },
+    ],
+    carVariants: 8,
+    skyColor: 0x8fd0f2,
+  },
   'san-telmo': {
     id: 'san-telmo',
     name: 'SAN TELMO',

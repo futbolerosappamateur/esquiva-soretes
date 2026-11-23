@@ -153,3 +153,122 @@ export const COIN_TUNING = {
   /** Monedas por estrella nueva conseguida en un nivel (sólo la primera vez). */
   newStarCoins: 10,
 };
+
+// ---------------------------------------------------------------------------
+// v0.3: habilidades, cronómetro y récords
+// ---------------------------------------------------------------------------
+
+/**
+ * Habilidades especiales (tecla E / botón especial). Duraciones y recargas en
+ * segundos de juego activo: la recarga no avanza mientras el juego está en pausa.
+ */
+export const ABILITY_TUNING = {
+  dash: { cooldown: 12, distance: 46, protection: 0.32, step: 2 },
+  doubleJump: { cooldown: 10, velocityFactor: 0.92 },
+  turbo: { cooldown: 20, duration: 3, speed: 1.65, accel: 1.4, decel: 0.45, brakeAfter: 1.2 },
+  sprint: { cooldown: 18, duration: 5, speed: 1.4, accel: 1.35, depth: 1.2 },
+  broom: { cooldown: 15, stop: 0.6, reach: 72, halfDepth: 26 },
+  hose: { cooldown: 22, duration: 2, reach: 96, halfDepth: 14, puddleEvery: 0.35 },
+  sniff: { cooldown: 25, duration: 6, range: 300 },
+  whistle: { cooldown: 30, duration: 3 },
+};
+
+/** Ventajas pasivas y pequeñas desventajas (valores de las habilidades pasivas). */
+export const PASSIVE_TUNING = {
+  /** Portero: alcance para juntar basura (multiplicador). */
+  porteroPickup: 2,
+  /** Paseador: distancia a la que sus perros "huelen" un sorete camuflado. */
+  dogDetect: 70,
+  /** Paseador: cada cuánto se pueden enredar las correas (segundos en movimiento) y cuánto frena. */
+  tangleEvery: [24, 42] as [number, number],
+  tangleTime: 1.2,
+  tangleSpeed: 0.55,
+  /** Policía: los autos le tocan bocina desde más lejos. */
+  policeHonk: 1.7,
+  /** Charcos del manguerazo: resbalan (frenado reducido) por este tiempo. */
+  puddleSlipTime: 0.6,
+  puddleSlipDecel: 0.35,
+};
+
+/** Bonus por terminar rápido (modo normal, partida no asistida). */
+export const SPEED_BONUS = {
+  points: { excellent: 2000, good: 1000, ok: 500 },
+  /**
+   * Umbrales por defecto como fracción de la duración estimada del nivel
+   * (cada nivel puede definir sus propios tiempos en data/campaign.ts).
+   */
+  fractions: { excellent: 0.74, good: 0.86, ok: 1.0 },
+};
+
+/** Validez de los tiempos: ningún récord puede ser más rápido que esto. */
+export const RECORD_RULES = {
+  /** Velocidad máxima teórica (px/s) usada para descartar tiempos imposibles. */
+  maxPlausibleSpeed: 240,
+  /** Cantidad de puestos que se muestran en cada ranking. */
+  rankingSize: 10,
+  /** Entradas que se conservan por nivel y modalidad (las demás se descartan). */
+  keepPerBoard: 40,
+};
+
+/**
+ * Vecina que riega la vereda: el chorro cruza la vereda desde las fachadas
+ * hacia el cordón, con aviso previo, y SIEMPRE deja libre un carril junto al
+ * cordón (además, entre chorro y chorro se puede pasar por cualquier lado).
+ * Mojarse no quita vidas: resta unos puntos y frena un poquito.
+ */
+export const WATER_TUNING = {
+  /** Duración (s) de cada fase del ciclo: quieta, aviso y chorro. */
+  idle: 1.8,
+  telegraph: 0.7,
+  spray: 1.5,
+  /** Medio ancho (px) de la franja que moja. */
+  halfWidth: 12,
+  /** Carril seco mínimo (px) junto al cordón. */
+  minLane: 22,
+  /** Hasta dónde llega cada chorro (fracción de la vereda), en orden cíclico. */
+  reaches: [0.5, 1, 0.7, 1, 0.45],
+  /** Altura de salto que alcanza para pasar por arriba del chorro. */
+  hitZ: 12,
+  /** Tiempo sin volver a mojar al mismo jugador. */
+  hitCooldown: 1.4,
+  /** Distancia a la que "cuenta" haber pasado con el chorro activo. */
+  nearDist: 110,
+  penalty: 50,
+  dodgeBonus: 100,
+  slipTime: 0.9,
+  slipDecel: 0.35,
+};
+
+/**
+ * Gente caminando por la vereda (el centro en hora pico): caminan por la zona
+ * jugable en los dos sentidos, esquivan los soretes y los árboles, y algunos
+ * (los atentos) también se corren para no chocar al pibe; los que van con el
+ * celular, no. Chocarse no quita vidas: resta puntos y frena, como mojarse.
+ * A una persona no se la puede saltar (mide más de lo que salta el pibe).
+ */
+export const CROWD_TUNING = {
+  /** Distancia media (px) entre peatones con `crowd: 1` y dificultad máxima. */
+  spacingAtFull: 130,
+  /** Cuánto más gente hay al final de un nivel difícil que al principio de uno fácil. */
+  densityByDifficulty: [0.55, 1.15] as [number, number],
+  /** Velocidad al caminar (px/s): entre la de una señora y la de alguien apurado. */
+  speed: [14, 30] as [number, number],
+  /** Probabilidad de que vaya mirando el celular (no se corre), según la dificultad. */
+  distracted: [0.2, 0.55] as [number, number],
+  /** Huella en el piso (para chocar y para esquivar). */
+  footprint: { shape: 'rect' as const, w: 10, h: 5 },
+  /** Cuánto mira hacia adelante para esquivar (px). */
+  lookAhead: 30,
+  /** Margen (px) que deja al pasar al lado de un sorete o de otra persona. */
+  avoidMargin: 4,
+  /** Velocidad (px/s) con la que se corre hacia el costado. */
+  sideSpeed: 34,
+  /** Franja de profundidad por la que caminan (dentro de la zona jugable). */
+  yMin: 146,
+  yMax: 200,
+  /** Choque: puntos que resta, frenada y tiempo sin volver a chocar con la misma persona. */
+  bumpPenalty: 40,
+  bumpCooldown: 1.2,
+  /** Después de un choque, la persona se queda quieta un instante (s). */
+  bumpPause: 0.6,
+};

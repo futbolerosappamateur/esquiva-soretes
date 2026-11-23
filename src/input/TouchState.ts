@@ -9,9 +9,23 @@ class TouchStateStore {
   active = false;
   private jumpQueued = false;
   private pauseQueued = false;
+  private specialQueued = false;
+  /** Lo actualiza la escena de juego para dibujar el botón especial (0..1, 1 = listo). */
+  specialCharge = 1;
+  specialIcon: string | null = null;
 
   queueJump(): void {
     this.jumpQueued = true;
+  }
+
+  queueSpecial(): void {
+    this.specialQueued = true;
+  }
+
+  consumeSpecial(): boolean {
+    const v = this.specialQueued;
+    this.specialQueued = false;
+    return v;
   }
 
   queuePause(): void {
@@ -36,6 +50,7 @@ class TouchStateStore {
     this.active = false;
     this.jumpQueued = false;
     this.pauseQueued = false;
+    this.specialQueued = false;
   }
 }
 

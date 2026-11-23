@@ -64,6 +64,8 @@ export class CrossingController {
   readonly traffic: TrafficSim;
   /** El jugador ya se acercó: el semáforo quedó sincronizado con su llegada. */
   activated = false;
+  /** Distancia de la bocina de aviso (el policía la oye antes). */
+  honkDistance = CROSSING_TUNING.honkDistance;
   private onRoad = false;
   private walkedOnRed = false;
   private hitThisCrossing = false;
@@ -123,6 +125,13 @@ export class CrossingController {
     this.light.set('vehGreen', Math.max(0, this.light.duration('vehGreen') - greenForCarsLeft));
   }
 
+  /** Silbatazo del policía: sólo sirve si todavía no cruzó esta esquina. */
+  forceWalk(seconds: number): boolean {
+    if (this.crossedAwarded) return false;
+    this.activated = true;
+    return this.light.forceWalk(seconds);
+  }
+
   isOnRoad(x: number, fp: Footprint): boolean {
     return x + fp.w / 2 > this.geo.roadX0 + 1 && x - fp.w / 2 < this.geo.roadX1 - 1;
   }
@@ -178,7 +187,7 @@ export class CrossingController {
     for (const v of this.traffic.vehicles) {
       if (v.lane !== lane || v.honkCooldown > 0) continue;
       const ahead = ps - v.s;
-      if (ahead > 0 && ahead < CROSSING_TUNING.honkDistance && v.speed > 20) {
+      if (ahead > 0 && ahead < this.honkDistance && v.speed > 20) {
         v.honkCooldown = 1.4;
         return v;
       }

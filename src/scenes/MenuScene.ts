@@ -12,6 +12,12 @@ import { ANIM } from '../graphics/animations';
 import { FX_FRAMES, TEX, UI_FRAMES } from '../graphics/keys';
 import { isTouchPrimary } from '../input/device';
 import { PLAYER_FRAME } from '../graphics/textures/playerTextures';
+import { fitToTexture } from '../graphics/renderScale';
+import { profileSession } from '../core/profileSession';
+import { online } from '../social/onlineSession';
+import { onlineStatusLabel } from '../social/onlineStatusLabel';
+import { openAccountPanel } from '../social/ui/accountPanel';
+import { isPanelOpen } from '../social/ui/overlay';
 import { EffectsSystem } from '../systems/EffectsSystem';
 import { Button } from '../ui/Button';
 import { ButtonMenu } from '../ui/ButtonMenu';
@@ -48,7 +54,6 @@ export class MenuScene extends Phaser.Scene {
     applyPlayerCharacter(this, saveStore.get().selectedCharacter);
     // Carril libre para el paseante del menú.
     this.layout.obstacles = this.layout.obstacles.filter((o) => o.y < WALKER_Y - 16);
-    this.cameras.main.setBounds(0, 0, this.layout.worldWidth, GAME_HEIGHT);
     this.cameras.main.setBackgroundColor(theme.skyColor);
 
     this.world = new WorldView(this, this.layout);
@@ -61,6 +66,7 @@ export class MenuScene extends Phaser.Scene {
       .sprite(0, WALKER_Y, TEX.player(0), 'walk0')
       .setOrigin(PLAYER_FRAME.originX, PLAYER_FRAME.originY)
       .setDepth(WALKER_Y + 0.5);
+    fitToTexture(this.walker);
     this.walker.play(ANIM.player(0, 'walk'));
 
     this.buildUi();
@@ -70,29 +76,61 @@ export class MenuScene extends Phaser.Scene {
 
   private buildUi(): void {
     const cx = GAME_WIDTH / 2;
-    const logo = this.add.image(cx, 8, TEX.logo).setOrigin(0.5, 0).setScrollFactor(0).setDepth(UI_DEPTH);
-    this.tweens.add({ targets: logo, y: 11, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // El logo definitivo (de plastilina, animado: el sorete salta y el farol titila)
+    // o, si no está, el provisional con el sorete al lado.
+    const art = this.textures.exists(TEX.logoArt) && this.anims.exists(ANIM.logoArt);
+    let logoBottom: number;
+    if (art) {
+      const logo = fitToTexture(this.add.sprite(cx, 3, TEX.logoArt, 'f0')).setOrigin(0.5, 0).setScrollFactor(0).setDepth(UI_DEPTH);
+      logo.play(ANIM.logoArt);
+      this.tweens.add({ targets: logo, y: 5, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      logoBottom = 3 + logo.displayHeight;
+    } else {
+      const logo = fitToTexture(this.add.image(cx, 7, TEX.logo)).setOrigin(0.5, 0).setScrollFactor(0).setDepth(UI_DEPTH);
+      this.tweens.add({ targets: logo, y: 10, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      const mascot = this.add
+        .sprite(Math.round(cx + logo.displayWidth / 2 + 10), 88, TEX.mascot, 'idle')
+        .setOrigin(0.5, 1)
+        .setScrollFactor(0)
+        .setDepth(UI_DEPTH);
+      mascot.play(ANIM.mascot);
+      // Se aplasta y estira (escala relativa a la de su dibujo con detalle).
+      const ms = fitToTexture(mascot).scaleX;
+      this.tweens.add({ targets: mascot, scaleY: ms * 0.86, scaleX: ms * 1.12, duration: 260, yoyo: true, repeat: -1, repeatDelay: 380, ease: 'Quad.easeOut' });
+      logoBottom = 92;
+    }
 
-    const mascot = this.add
-      .sprite(Math.round(cx + logo.width / 2 + 14), 84, TEX.mascot, 'idle')
-      .setOrigin(0.5, 1)
-      .setScrollFactor(0)
-      .setDepth(UI_DEPTH);
-    mascot.play(ANIM.mascot);
-    this.tweens.add({ targets: mascot, scaleY: 0.86, scaleX: 1.12, duration: 260, yoyo: true, repeat: -1, repeatDelay: 380, ease: 'Quad.easeOut' });
-
-    addText(this, cx, 100, TEXTS.subtitle.toUpperCase(), { color: UI_COLORS.cream, origin: [0.5, 0], scrollFactor: 0, depth: UI_DEPTH });
+    const subtitleY = Math.round(logoBottom + (art ? 2 : 8));
+    addText(this, cx, subtitleY, TEXTS.subtitle.toUpperCase(), { color: UI_COLORS.cream, origin: [0.5, 0], scrollFactor: 0, depth: UI_DEPTH });
 
     const make = (y: number, label: string, onClick: () => void) =>
-      new Button(this, cx, y, label, { width: 128, height: 19, onClick, depth: UI_DEPTH });
-    const play = make(124, TEXTS.menu.play, () => this.startGame());
-    const howTo = make(145, TEXTS.menu.howTo, () => this.openOverlay(SCENES.HOW_TO));
-    const options = make(166, TEXTS.menu.options, () => this.openOverlay(SCENES.OPTIONS));
-    const recordsBtn = make(187, TEXTS2.menu.records, () => this.openOverlay(SCENES.RECORDS));
-    this.menu = new ButtonMenu(this, [{ button: play }, { button: howTo }, { button: options }, { button: recordsBtn }], { depth: UI_DEPTH });
+      new Button(this, cx, y, label, { width: 128, height: 18, onClick, depth: UI_DEPTH });
+    const first = subtitleY + 20;
+    const play = make(first, TEXTS.menu.play, () => this.startGame());
+    const profile = make(first + 20, TEXTS2.profiles.change, () => this.openProfiles());
+    const howTo = make(first + 40, TEXTS.menu.howTo, () => this.openOverlay(SCENES.HOW_TO));
+    const options = make(first + 60, TEXTS.menu.options, () => this.openOverlay(SCENES.OPTIONS));
+    const recordsBtn = make(first + 80, TEXTS2.menu.records, () => this.openOverlay(SCENES.RECORDS));
+    this.menu = new ButtonMenu(this, [{ button: play }, { button: profile }, { button: howTo }, { button: options }, { button: recordsBtn }], { depth: UI_DEPTH });
+
+    addText(this, 6, 6, `${TEXTS2.profiles.playingAs}: ${saveStore.activeProfile().nickname}`, { color: UI_COLORS.celeste, scrollFactor: 0, depth: UI_DEPTH });
+    // Estado online (modo local, invitado, conectado...). Tocándolo se abre la cuenta.
+    const status = addText(this, 6, 16, '', { outline: false, scrollFactor: 0, depth: UI_DEPTH });
+    // Área táctil más grande que el texto (para tocarlo con el dedo).
+    const hit = new Phaser.Geom.Rectangle(0, 0, 1, 1);
+    status.setInteractive({ hitArea: hit, hitAreaCallback: Phaser.Geom.Rectangle.Contains, useHandCursor: true });
+    const refreshStatus = () => {
+      const label = onlineStatusLabel();
+      status.setText(label.text).setTint(label.color);
+      hit.setTo(-6, -6, status.width + 12, status.height + 10);
+    };
+    refreshStatus();
+    const off = online.on(refreshStatus);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, off);
+    status.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.openAccount());
 
     const best = records.get().bestScore;
-    addText(this, cx, 207, best > 0 ? `${TEXTS.menu.record}: ${formatThousands(best)}` : TEXTS.menu.noRecord, {
+    addText(this, cx, first + 94, best > 0 ? `${TEXTS.menu.record}: ${formatThousands(best)}` : TEXTS.menu.noRecord, {
       color: UI_COLORS.yellow,
       origin: [0.5, 0],
       scrollFactor: 0,
@@ -123,8 +161,23 @@ export class MenuScene extends Phaser.Scene {
     audio.play('start');
     this.cameras.main.fadeOut(260, 18, 12, 24);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start(SCENES.WORLD_MAP);
+      // Una vez por sesión se elige quién juega (perfiles locales).
+      if (profileSession.chosen) this.scene.start(SCENES.WORLD_MAP);
+      else this.scene.start(SCENES.PROFILES, { next: 'map' });
     });
+  }
+
+  private openProfiles(): void {
+    this.menu.setEnabled(false);
+    this.scene.start(SCENES.PROFILES, { next: 'menu' });
+  }
+
+  private openAccount(): void {
+    if (isPanelOpen()) return;
+    this.menu.setEnabled(false);
+    audio.play('click');
+    // Al cerrar se rearma el menú (puede haber cambiado el perfil activo).
+    openAccountPanel({ onClose: () => this.scene.restart() });
   }
 
   private openOverlay(key: string): void {
