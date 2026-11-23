@@ -1,0 +1,23 @@
+# Sitio de esquivasoretes.com.ar (Apache). La contraseña de /demo la pone Plesk
+# (directorio protegido "demo"), no este archivo.
+
+# Comprimir el texto: el juego son ~1,6 MB de JavaScript; comprimido baja a ~0,5 MB.
+AddType application/geo+json .geojson
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json application/geo+json image/svg+xml
+</IfModule>
+
+# Caché: los archivos con huella en el nombre (assets/index-AbCd1234.js) no cambian
+# nunca; las imágenes y los datos, por un día (así una actualización se ve enseguida).
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png "access plus 1 day"
+  ExpiresByType image/webp "access plus 1 day"
+  ExpiresByType application/json "access plus 1 day"
+  ExpiresByType application/geo+json "access plus 1 day"
+</IfModule>
+<IfModule mod_headers.c>
+  <FilesMatch "-[A-Za-z0-9_-]{8}\.(js|css|ttf)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

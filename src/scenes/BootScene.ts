@@ -1,3 +1,4 @@
+import { hideLoadingScreen, setLoadingProgress } from '../ui/loadingScreen';
 import Phaser from 'phaser';
 import { applyManifest, queueManifest } from '../assets/AssetLoader';
 import { GAME_HEIGHT, GAME_WIDTH, SCENES } from '../config/constants';
@@ -26,6 +27,8 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     queueManifest(this.load);
+    // Mientras bajan los dibujos, el porcentaje en la pantalla de carga de la página.
+    this.load.on(Phaser.Loader.Events.PROGRESS, (fraction: number) => setLoadingProgress(fraction));
     // Un archivo faltante no rompe nada: queda el gráfico provisional.
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => console.warn(`No se pudo cargar ${file.key}`));
   }
@@ -40,6 +43,8 @@ export class BootScene extends Phaser.Scene {
 
   private start(): void {
     registerFonts(this);
+    // Desde acá se ve la barra de progreso del juego.
+    hideLoadingScreen();
     const cx = GAME_WIDTH / 2;
     addText(this, cx, GAME_HEIGHT / 2 - 34, 'ESQUIVA SORETES', { scale: 2, color: UI_COLORS.yellow, origin: 0.5 });
     this.label = addText(this, cx, GAME_HEIGHT / 2 + 22, '', { color: UI_COLORS.cream, origin: 0.5 });

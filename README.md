@@ -278,6 +278,8 @@ src/
 supabase/migrations/      esquema, seguridad (RLS) y funciones del servidor; reglas generadas
 docs/ONLINE.md            guía del modo online (configuración, seguridad, privacidad, moderación)
 docs/PLAN.md              rumbo acordado y orden de trabajo
+docs/PUBLICAR.md          cómo se arma y se sube el sitio (portada pública + demo con contraseña)
+sitio/                    la portada de esquivasoretes.com.ar (npm run sitio arma todo en dist-sitio/)
 tests/                    pruebas de Vitest (salto, teclado, cruces, niveles, guardado, mapa, poderes,
                           cronómetro y récords, perfiles y logros, vecinas y perro perdido,
                           rasgos de barrio y gente caminando)

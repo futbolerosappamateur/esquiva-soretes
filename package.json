@@ -15,7 +15,8 @@
     "dev:sandbox": "vite --mode sandbox --port 5174",
     "online:sandbox": "node scripts/online-sandbox/server.mjs",
     "sprites": "node scripts/sprites/convert-sheet.mjs",
-    "logo": "node scripts/sprites/convert-logo.mjs"
+    "logo": "node scripts/sprites/convert-logo.mjs",
+    "sitio": "node scripts/build-sitio.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
